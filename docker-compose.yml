@@ -1,0 +1,118 @@
+version: '3.8'
+
+services:
+
+  mongo1:
+    image: mongo:7.0
+    container_name: ph_mongo1
+    command: mongod --replSet potatohubRS --bind_ip_all
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo1_data:/data/db
+    networks:
+      - ph_net
+    restart: unless-stopped
+
+  mongo2:
+    image: mongo:7.0
+    container_name: ph_mongo2
+    command: mongod --replSet potatohubRS --bind_ip_all
+    volumes:
+      - mongo2_data:/data/db
+    networks:
+      - ph_net
+    restart: unless-stopped
+
+  mongo3:
+    image: mongo:7.0
+    container_name: ph_mongo3
+    command: mongod --replSet potatohubRS --bind_ip_all
+    volumes:
+      - mongo3_data:/data/db
+    networks:
+      - ph_net
+    restart: unless-stopped
+
+  mongo-init:
+    image: mongo:7.0
+    container_name: ph_mongo_init
+    depends_on:
+      - mongo1
+      - mongo2
+      - mongo3
+    networks:
+      - ph_net
+    entrypoint: >
+      bash -c "
+        echo 'Esperando que los nodos estén listos...' &&
+        sleep 15 &&
+        mongosh --host mongo1:27017 --eval '
+          rs.initiate({
+            _id: \"potatohubRS\",
+            members: [
+              { _id: 0, host: \"mongo1:27017\", priority: 2 },
+              { _id: 1, host: \"mongo2:27017\", priority: 1 },
+              { _id: 2, host: \"mongo3:27017\", priority: 1 }
+            ]
+          })
+        ' &&
+        echo 'Replica Set iniciado.'
+      "
+    restart: no
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: ph_redis
+    command: redis-server --appendonly yes --appendfsync everysec
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ph_net
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:5.18
+    container_name: ph_neo4j
+    environment:
+      NEO4J_AUTH: neo4j/potatohub123
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 1G
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+    networks:
+      - ph_net
+    restart: unless-stopped
+
+  api:
+    build: .
+    container_name: ph_api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - mongo1
+      - redis
+      - neo4j
+    volumes:
+      - .:/app
+    networks:
+      - ph_net
+    restart: unless-stopped
+
+volumes:
+  mongo1_data:
+  mongo2_data:
+  mongo3_data:
+  redis_data:
+  neo4j_data:
+
+networks:
+  ph_net:
+    driver: bridge
