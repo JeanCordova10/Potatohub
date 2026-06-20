@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PotatoHub</title>
-    <link rel="stylesheet" href="/static/style.css?v=20260629a">
-    <script defer src="/static/script.js?v=20260629a"></script>
+    <link rel="stylesheet" href="/static/style.css?v=20260619d">
+    <script defer src="/static/script.js?v=20260619d"></script>
 </head>
 <body>
     <div class="shell">
@@ -16,16 +16,12 @@
                 <p class="lede">Explora recetas de papa con busqueda, ranking y recomendaciones. Si el backend no responde, el catalogo demo sigue activo para probar la interfaz.</p>
                 <div class="source-strip">
                     <span class="source-pill soft">Cookpad</span>
+                    <span class="source-pill soft">Recetas Gratis</span>
                     <span id="catalogModeBadge" class="inline-status idle">Loading catalog</span>
                 </div>
             </div>
             <div class="topbar-actions">
                 <span id="apiStatus" class="status-badge idle">Checking</span>
-                <div class="auth-strip">
-                    <button id="authBtn" class="control-btn auth-btn" type="button">Login</button>
-                    <span id="userChip" class="user-chip" hidden></span>
-                    <button id="logoutBtn" class="control-btn auth-btn secondary" type="button" hidden>Logout</button>
-                </div>
                 <button id="refreshBtn" class="control-btn" type="button">Refresh catalog</button>
             </div>
         </header>
@@ -53,24 +49,27 @@
                     <div class="filters">
                         <select id="filterCategory" aria-label="Category filter">
                             <option value="">All categories</option>
+                            <option value="Potato">Potato</option>
+                            <option value="Breakfast">Breakfast</option>
+                            <option value="Soup">Soup</option>
+                            <option value="Salad">Salad</option>
+                            <option value="Main dish">Main dish</option>
+                            <option value="Snack">Snack</option>
+                            <option value="Dessert">Dessert</option>
+                            <option value="General">General</option>
                         </select>
                         <select id="filterDifficulty" aria-label="Difficulty filter">
                             <option value="">All difficulty</option>
-                        </select>
-                        <select id="pageSizeSelect" aria-label="Recipes per page">
-                            <option value="6">6 per page</option>
-                            <option value="12" selected>12 per page</option>
-                            <option value="24">24 per page</option>
+                            <option value="easy">Easy</option>
+                            <option value="medium">Medium</option>
+                            <option value="hard">Hard</option>
                         </select>
                     </div>
                     <div id="refreshStatus" class="inline-status" aria-live="polite"></div>
                 </div>
 
                 <div id="searchResults" class="results-grid" aria-live="polite"></div>
-                <div class="pagination-wrap">
-                    <div id="paginationSummary" class="pagination-summary" aria-live="polite"></div>
-                    <div id="searchPagination" class="pagination"></div>
-                </div>
+                <div id="searchPagination" class="pagination"></div>
             </section>
 
             <section id="tab-ranking" class="tab-content">
@@ -116,57 +115,6 @@
                     <button id="recipeModalClose" class="icon-btn" type="button" aria-label="Close recipe details">X</button>
                 </div>
                 <div id="recipeModalBody" class="recipe-modal-body"></div>
-            </section>
-        </div>
-
-        <div id="authModal" class="auth-modal" hidden aria-hidden="true" style="display:none;">
-            <div class="auth-modal-backdrop" data-close-auth="true"></div>
-            <section class="auth-modal-panel" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
-                <div class="auth-modal-header">
-                    <div>
-                        <p class="eyebrow">Account</p>
-                        <h2 id="authModalTitle">Login</h2>
-                    </div>
-                    <button id="authModalClose" class="icon-btn" type="button" aria-label="Close auth dialog">X</button>
-                </div>
-                <div class="auth-tabs" role="tablist" aria-label="Authentication mode">
-                    <button class="auth-tab active" data-auth-tab="login" type="button">Login</button>
-                    <button class="auth-tab" data-auth-tab="register" type="button">Register</button>
-                </div>
-                <div id="authStatus" class="inline-status" aria-live="polite"></div>
-                <div class="auth-panels">
-                    <form id="loginForm" class="auth-form active">
-                        <label>
-                            <span>Email</span>
-                            <input id="loginEmail" type="email" autocomplete="email" placeholder="you@example.com" required>
-                        </label>
-                        <label>
-                            <span>Password</span>
-                            <input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••" required>
-                        </label>
-                        <button class="control-btn auth-submit" type="submit">Enter</button>
-                    </form>
-                    <form id="registerForm" class="auth-form">
-                        <label>
-                            <span>Name</span>
-                            <input id="registerName" type="text" autocomplete="name" placeholder="Your name" required>
-                        </label>
-                        <label>
-                            <span>Email</span>
-                            <input id="registerEmail" type="email" autocomplete="email" placeholder="you@example.com" required>
-                        </label>
-                        <label>
-                            <span>Password</span>
-                            <input id="registerPassword" type="password" autocomplete="new-password" placeholder="At least 6 characters" required>
-                        </label>
-                        <button class="control-btn auth-submit" type="submit">Create account</button>
-                    </form>
-                </div>
-                <div class="auth-note">
-                    <span>Demo user:</span>
-                    <code>demo@potatohub.local</code>
-                    <code>potato123</code>
-                </div>
             </section>
         </div>
 

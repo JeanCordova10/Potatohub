@@ -1,288 +1,247 @@
 # PotatoHub
 
-Plataforma NoSQL de recetas de papa. En su estado actual, el proyecto esta centrado en un ETL que scrapea recetas desde Cookpad PE, las guarda en MongoDB y luego puede enriquecer cada receta con ingredientes e instrucciones.
+PotatoHub is a local web app for exploring potato-centered recipes, built from live scraping and a small recommendation graph.
 
-## Estado actual
+The project has three core ideas:
 
-- La fuente activa de scraping es solo Cookpad.
-- El ETL guarda resultados en MongoDB de forma idempotente.
-- Hay un segundo paso opcional para entrar a cada receta y extraer detalle.
-- La API existe, pero por ahora solo expone `GET /health`.
-- `redis` y `neo4j` siguen declarados en `docker-compose.yml`, pero no participan en el scraper actual.
+1. Scraping recipes from Cookpad and Recetas Gratis to build the dataset.
+2. MongoDB as the main operational store for the catalog.
+3. Neo4j as the recommendation layer, using ingredient similarity and recipe type.
 
-## Flujo del proyecto
+The app still runs locally without those external services. In that mode it uses `data/recipes.json` as the local persistence file so the UI keeps working.
 
-El flujo real hoy es este:
+## What the project does
 
-1. `etl/run_etl.py` busca recetas en las paginas de resultados de Cookpad.
-2. `etl/scraper.py` extrae `title` y `source_url` de cada receta encontrada.
-3. `etl/transformer.py` normaliza cada resultado a un documento comun.
-4. `etl/mongo_loader.py` inserta solo recetas nuevas en MongoDB.
-5. `etl/enrich_recipes.py` entra a cada receta ya guardada y extrae ingredientes e instrucciones.
+- Scrapes recipe data from live sources.
+- Normalizes each recipe into a common schema.
+- Lets the frontend search by text, category, and difficulty.
+- Refreshes the catalog from live sources.
+- Records simple interactions like views and saves.
+- Generates recommendations from the catalog, or from Neo4j when it is enabled.
+- Opens the full recipe view with ingredients, instructions, metadata, and source link.
 
-## Estructura importante
+## Architecture
 
-- `etl/config.py`: terminos de busqueda, headers HTTP, rate limit y categorias.
-- `etl/scraper.py`: scraper de listados de Cookpad.
-- `etl/transformer.py`: limpieza y normalizacion de datos.
-- `etl/mongo_loader.py`: insercion idempotente en MongoDB.
-- `etl/enrich_recipes.py`: scraping de detalle por receta.
-- `etl/debug_scraper.py`: utilidades para inspeccionar selectores de Cookpad.
-- `etl/check_db.py`: chequeo rapido de lo que se guardo en Mongo.
-- `app/main.py`: API minima.
+### Scraping
 
-## Requisitos
+The scraping pipeline pulls recipes from:
 
-- Docker y Docker Compose
-- Python 3.11
-- Dependencias de `requirements.txt`
+- Cookpad
+- Recetas Gratis
 
-## Variables de entorno
+The scraper is used to generate a dataset. For this project, the scraped potato recipes are the seed and refresh source for the catalog.
 
-El repo ya usa estas variables en `.env`:
+### Storage
 
-```env
-MONGO_URI=mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=potatohubRS
-MONGO_DB=potatohub
-REDIS_URL=redis://redis:6379
-NEO4J_URI=bolt://neo4j:7687
-NEO4J_USER=neo4j
-NEO4J_PASSWORD=potatohub123
-MONGO_URI_LOCAL=mongodb://localhost:27017/?directConnection=true
+The project has a layered storage model:
+
+- Local JSON file: default persistence for development.
+- MongoDB: operational catalog store when sync is enabled.
+- Neo4j: graph model for recommendation queries when sync is enabled.
+
+### Neo4j model
+
+Neo4j stores the catalog as a graph with:
+
+- `(:Recipe)`
+- `(:Ingredient)`
+- `(:Category)`
+- `(:Difficulty)`
+
+Relationships:
+
+- `(:Recipe)-[:USES]->(:Ingredient)`
+- `(:Recipe)-[:IN_CATEGORY]->(:Category)`
+- `(:Recipe)-[:HAS_DIFFICULTY]->(:Difficulty)`
+
+Recommendation modes:
+
+- `hybrid`: combines ingredient overlap and recipe type
+- `ingredients`: prioritizes shared ingredients
+- `type`: prioritizes recipe category/type
+
+## Local run
+
+### 1. Install dependencies
+
+```bash
+py -3 -m pip install -r requirements.txt
 ```
 
-`run_etl.py` y `enrich_recipes.py` usan `MONGO_URI_LOCAL`, porque estan pensados para ejecutarse desde tu maquina local y conectarse a Mongo por `localhost:27017`.
+### 2. Start local databases
 
-## Como levantar el entorno
+```bash
+docker compose -f docker-compose.local.yml up -d
+```
 
-Si solo quieres correr el ETL, lo importante es MongoDB.
+This starts:
 
-Levantar Mongo con Docker:
+- MongoDB on `mongodb://127.0.0.1:27017`
+- Neo4j on `bolt://127.0.0.1:7687`
+
+### 3. Run the API against local services
+
+PowerShell:
 
 ```powershell
-docker compose up -d mongo1 mongo2 mongo3 mongo-init
+$env:MONGO_URI='mongodb://127.0.0.1:27017'
+$env:MONGO_DB='potatohub'
+$env:NEO4J_URI='bolt://127.0.0.1:7687'
+$env:NEO4J_USER='neo4j'
+$env:NEO4J_PASSWORD='potatohub123'
+$env:ENABLE_MONGO_SYNC='true'
+$env:ENABLE_NEO4J_SYNC='true'
+py -3 -m uvicorn app.main:app --host 127.0.0.1 --port 8002
 ```
 
-Si quieres levantar todo lo declarado en el compose:
+Open:
 
-```powershell
-docker compose up -d
+```text
+http://127.0.0.1:8002
 ```
 
-## Como instalar dependencias
+## Optional services
 
-Si no tienes entorno virtual creado:
+Enable these only if you have the containers or local services running:
 
-```powershell
-python -m venv venv
+- `ENABLE_MONGO_SYNC=true`
+- `ENABLE_NEO4J_SYNC=true`
+- `ENABLE_REDIS_CACHE=true`
+
+The default local setup keeps them off so the app can run with the JSON store only.
+
+## API
+
+### Health
+
+`GET /health`
+
+### Search
+
+`GET /api/recipes/search?q=&category=&difficulty=&page=&size=`
+
+### Refresh catalog
+
+`POST /api/recipes/refresh`
+
+### Filters
+
+`GET /api/recipes/filters`
+
+Returns the available categories, difficulties, and sources currently in the catalog.
+
+### Recipe detail
+
+`GET /api/recipes/{recipe_id}`
+
+### Interactions
+
+`POST /api/recipes/{recipe_id}/interact`
+
+Payload:
+
+```json
+{ "action": "view" }
 ```
 
-Activar entorno virtual en PowerShell:
+or
 
-```powershell
-.\venv\Scripts\Activate.ps1
+```json
+{ "action": "save" }
 ```
 
-Instalar dependencias:
+### Recommendations
 
-```powershell
-pip install -r requirements.txt
+`GET /api/recipes/{recipe_id}/recommendations?limit=6&mode=hybrid`
+
+Supported modes:
+
+- `hybrid`
+- `ingredients`
+- `type`
+
+### Ranking
+
+`GET /api/recipes/ranking/{period}`
+
+## Frontend behavior
+
+The frontend is wired to real backend actions:
+
+- Search runs against the API.
+- Category and difficulty filters reload the result set.
+- Refresh triggers a fresh scrape and catalog replacement.
+- Recommendation buttons call the recommendation endpoint.
+- If the API is not available, the frontend falls back to a built-in demo catalog so the layout and buttons can still be tested locally.
+
+## Project layout
+
+- `app/main.py`: FastAPI app bootstrap
+- `app/database.py`: local recipe repository
+- `app/models.py`: Pydantic models
+- `app/routers/`: API routes
+- `app/services/`: MongoDB, Redis, Neo4j, and sync wrappers
+- `etl/`: scrapers, transformer, and Neo4j loader
+- `frontend/`: single-page UI
+
+## Notes
+
+- The app can run without MongoDB and Neo4j.
+- When Neo4j is enabled, the recommendation endpoint prefers graph queries and falls back to the in-memory catalog logic if needed.
+- Scraping is meant to build and refresh the catalog, not to replace the recommendation layer.
+
+## How to verify the data source
+
+If you want to confirm whether the app is using local storage, MongoDB, or Neo4j, check the health endpoint:
+
+```text
+GET /health
 ```
 
-## Como ejecutar el ETL
+The response includes:
 
-Con el entorno virtual activado:
+- `storage_file`: the local JSON file used by the repository
+- `mongo_enabled` and `mongo_status`
+- `neo4j_enabled` and `neo4j_status`
 
-```powershell
-python -m etl.run_etl
+In the default local setup:
+
+- MongoDB is disabled unless you set `ENABLE_MONGO_SYNC=true`
+- Neo4j is disabled unless you set `ENABLE_NEO4J_SYNC=true`
+- data is always persisted in `data/recipes.json` for local fallback
+
+When the local databases are running and the API is started with the env vars above, `health` should report:
+
+- `mongo_enabled: true`
+- `neo4j_enabled: true`
+- `mongo_status: connected`
+- `neo4j_status: connected`
+
+You can also verify the payload directly with:
+
+```text
+GET /api/recipes/search?q=*&page=0&size=1
 ```
 
-O directamente con el Python del entorno virtual:
+That response returns a recipe object with:
 
-```powershell
-.\venv\Scripts\python.exe -m etl.run_etl
-```
+- `ingredients`
+- `instructions`
+- `source_name`
+- `source_url`
 
-Este paso:
+So the catalog is not hardcoded in the frontend. The frontend only renders data from the backend.
 
-- recorre los terminos definidos en `COOKPAD_TERMS`
-- visita las paginas de busqueda de Cookpad
-- extrae recetas del listado
-- transforma cada item
-- inserta solo las nuevas
+## Full recipe view
 
-## Como enriquecer recetas con detalle
+The catalog card is just the preview. Use `Ver receta` to open the full recipe detail view, which shows:
 
-Despues del ETL base, puedes extraer ingredientes y pasos:
+- image
+- description
+- ingredients
+- instructions
+- stats
+- source link
+- tags
 
-```powershell
-python -m etl.enrich_recipes
-```
-
-Ese script:
-
-- busca recetas de `cookpad_pe` que aun tienen `ingredients = []`
-- entra a la URL de cada receta
-- extrae ingredientes con el selector `[id^="ingredient_"]`
-- extrae pasos con el selector `[id^="step_"]`
-- actualiza el documento en Mongo
-
-## Como revisar la base de datos
-
-```powershell
-python etl\check_db.py
-```
-
-Sirve para ver:
-
-- total de recetas
-- recetas por fuente
-- recetas por categoria
-- ejemplos guardados
-- cuantas ya tienen ingredientes
-
-## Como funciona el scraper
-
-### 1. Scraping de listado
-
-El scraper de listado esta en `etl/scraper.py` y sigue este patron:
-
-1. Construye la URL de busqueda.
-2. Hace el request con headers de navegador normal.
-3. Parsea el HTML con BeautifulSoup.
-4. Busca todos los links que parezcan recetas.
-5. Filtra solo los links validos.
-6. Convierte cada resultado en un diccionario simple.
-7. Espera unos segundos antes de pasar a la siguiente pagina.
-
-En este proyecto, la URL se arma asi:
-
-```python
-url = f"https://cookpad.com/pe/buscar/{term}?page={page}"
-```
-
-Luego el codigo busca anchors que contengan `/recetas/`:
-
-```python
-todos_links = soup.select('a[href*="/recetas/"]')
-```
-
-Y filtra solo rutas con ID numerico:
-
-```python
-re.search(r"/recetas/\d+", href)
-```
-
-Eso evita meter links que no son recetas reales.
-
-### 2. Estructura minima de cada resultado
-
-Cada item crudo sale asi:
-
-```python
-{
-    "title": "...",
-    "source_url": "...",
-    "source": "cookpad_pe",
-    "search_term": term,
-    "lang": "es",
-    "country": "PE",
-}
-```
-
-La idea es separar bien:
-
-- lo que el scraper encuentra
-- lo que el transformador normaliza
-- lo que Mongo inserta
-
-## Como funciona la transformacion
-
-`etl/transformer.py` toma cada item crudo y:
-
-- genera `_id = md5(source_url)` para evitar duplicados
-- clasifica la receta segun palabras clave
-- crea campos vacios para enriquecer despues
-- agrega timestamps
-
-Esto permite que el scraper de listado sea simple y que el documento final mantenga una estructura estable.
-
-## Como funciona la insercion en Mongo
-
-`etl/mongo_loader.py` usa `UpdateOne(..., upsert=True)` con `$setOnInsert`.
-
-Eso significa:
-
-- si la receta no existe, la inserta
-- si la receta ya existe, no la pisa
-
-La deduplicacion depende de `_id`, que se calcula a partir de la URL. Si la URL no cambia, no se duplica.
-
-## Como funciona el scraping de detalle
-
-`etl/enrich_recipes.py` hace una segunda pasada, porque las paginas de listado no traen toda la informacion.
-
-El patron es:
-
-1. Leer de Mongo recetas incompletas.
-2. Entrar a la URL individual de cada receta.
-3. Buscar selectores mas estables del detalle.
-4. Actualizar solo los campos enriquecidos.
-
-En Cookpad se usan estos selectores:
-
-- ingredientes: `[id^="ingredient_"]`
-- pasos: `[id^="step_"]`
-
-Esto es mejor que intentar sacar todo desde el listado, porque:
-
-- el listado casi nunca trae ingredientes completos
-- el HTML de detalle suele tener selectores mas claros
-- puedes reintentar solo el enriquecimiento sin repetir todo el ETL
-
-## Como adaptar este scraper a otra web
-
-Si tu o tu amigo quieren hacer lo mismo en otra pagina, el proceso recomendado es este:
-
-1. Identificar la URL de listado o busqueda.
-2. Revisar la paginacion.
-3. Encontrar un selector estable para los links de receta.
-4. Extraer primero solo `title` y `source_url`.
-5. Guardar resultados crudos con una estructura minima comun.
-6. Crear un segundo scraper para el detalle.
-7. Insertar con deduplicacion por URL.
-8. Agregar rate limit y condiciones de corte.
-
-Regla practica:
-
-- listado = descubrir recetas
-- detalle = enriquecer recetas
-
-No mezcles ambas cosas al inicio. Separarlas hace que el scraper sea mas facil de depurar y mantener.
-
-## Buenas practicas que ya usa este proyecto
-
-- Headers HTTP parecidos a un navegador real.
-- `timeout` y `follow_redirects=True`.
-- `time.sleep()` entre requests.
-- Corte temprano si una pagina no responde o ya no trae recetas.
-- Dedupe por URL.
-- Scraper de listado separado del scraper de detalle.
-- Debug aislado en `etl/debug_scraper.py`.
-
-## Consejos para explicarselo a otra persona
-
-Si tienes que explicarselo a tu amigo, la version corta es esta:
-
-1. El scraper primero busca recetas en paginas de resultados.
-2. De cada resultado saca titulo y URL.
-3. Guarda eso en Mongo sin duplicar.
-4. Luego entra a cada receta para sacar ingredientes y pasos.
-5. Separar listado y detalle hace que el scraper sea mas estable.
-
-## Limitaciones actuales
-
-- El proyecto depende de que Cookpad no cambie su HTML.
-- El enriquecimiento usa selectores especificos de Cookpad.
-- La API todavia no expone consultas reales de recetas.
-- Redis y Neo4j aun no estan integrados al flujo actual.
+Recommendations can still be opened from the card or from the recipe detail modal.

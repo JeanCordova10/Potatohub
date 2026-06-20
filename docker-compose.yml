@@ -1,5 +1,8 @@
+version: '3.8'
+
 services:
 
+  # ── MongoDB Replica Set (3 nodos) ─────────────────────────────
   mongo1:
     image: mongo:7.0
     container_name: ph_mongo1
@@ -32,6 +35,7 @@ services:
       - ph_net
     restart: unless-stopped
 
+  # Contenedor que inicializa el Replica Set (corre una vez y se apaga)
   mongo-init:
     image: mongo:7.0
     container_name: ph_mongo_init
@@ -59,6 +63,20 @@ services:
       "
     restart: no
 
+  # ── Redis ─────────────────────────────────────────────────────
+  redis:
+    image: redis:7.2-alpine
+    container_name: ph_redis
+    command: redis-server --appendonly yes --appendfsync everysec
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ph_net
+    restart: unless-stopped
+
+  # ── Neo4j ─────────────────────────────────────────────────────
   neo4j:
     image: neo4j:5.18
     container_name: ph_neo4j
@@ -67,20 +85,42 @@ services:
       NEO4J_server_memory_heap_initial__size: 512m
       NEO4J_server_memory_heap_max__size: 1G
     ports:
-      - "7474:7474"
-      - "7687:7687"
+      - "7474:7474"   # Neo4j Browser (abrir en el navegador)
+      - "7687:7687"   # Bolt (protocolo que usa el driver Python)
     volumes:
       - neo4j_data:/data
     networks:
       - ph_net
     restart: unless-stopped
 
+  # ── FastAPI ───────────────────────────────────────────────────
+  api:
+    build: .
+    container_name: ph_api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - mongo1
+      - redis
+      - neo4j
+    volumes:
+      - .:/app          # hot reload: los cambios en código se reflejan al instante
+      - ./frontend:/app/frontend
+    networks:
+      - ph_net
+    restart: unless-stopped
+
+# ── Volúmenes persistentes ────────────────────────────────────────
 volumes:
   mongo1_data:
   mongo2_data:
   mongo3_data:
+  redis_data:
   neo4j_data:
 
+# ── Red interna ───────────────────────────────────────────────────
 networks:
   ph_net:
     driver: bridge

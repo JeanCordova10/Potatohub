@@ -2,7 +2,6 @@
 __pycache__/
 *.pyc
 .venv/
-venv/
 *.egg-info/
-*.archive.gz
-potatohub.dump
+.DS_Store
+data/
