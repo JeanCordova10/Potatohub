@@ -15,10 +15,10 @@ RECETASGRATIS_TERMS = [
 ]
 
 # Máximo de páginas por término (para no sobrecargar los servidores)
-MAX_PAGES = 10
+MAX_PAGES = 20
 MAX_PAGES_RECETASGRATIS = 1   # solo 1 página porque la paginación no funciona
 # 1 request cada 3 segundos (scraping responsable)
-RATE_LIMIT_SECONDS = 3
+RATE_LIMIT_SECONDS = 4
 
 # Headers para simular un navegador normal
 HEADERS = {

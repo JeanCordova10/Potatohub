@@ -3,7 +3,7 @@ import re
 import time
 from bs4 import BeautifulSoup
 from etl.config import HEADERS, RATE_LIMIT_SECONDS, MAX_PAGES, MAX_PAGES_RECETASGRATIS
-
+import urllib.parse
 
 
 def fetch_page(url: str) -> BeautifulSoup | None:
@@ -64,7 +64,6 @@ def scrape_cookpad(term: str) -> list[dict]:
     return resultados
 
 
-import urllib.parse
 
 def scrape_recetasgratis(term: str) -> list[dict]:
     resultados = []
@@ -107,6 +106,108 @@ def scrape_recetasgratis(term: str) -> list[dict]:
                 "source_url":  url_receta,
                 "source":      "recetasgratis",
                 "search_term": term,
+                "lang":        "es",
+                "country":     "ES",
+            })
+            nuevas += 1
+
+        print(f"  -> {nuevas} recetas encontradas")
+        time.sleep(RATE_LIMIT_SECONDS)
+
+    return resultados
+
+def scrape_ceciliatupac() -> list[dict]:
+    """Página de listado de recetas con papas — sin paginación."""
+    url = "https://www.ceciliatupac.com/recetas-con-papas"
+    print(f"  CeciliaTupac: {url}")
+
+    soup = fetch_page(url)
+    if not soup:
+        return []
+
+    # Links individuales de recetas: contienen "papa" en la URL
+    # y no son links de navegación general
+    NAV_KEYWORDS = ["recetas-rapidas", "recetas-al-horno", "recetas-con-pollo",
+                    "recetas-con-carne", "recetas-faciles", "category", "tag"]
+
+    todos = soup.select('a[href*="papa"], a[href*="receta"]')
+    resultados = []
+
+    vistos = set()
+    for link in todos:
+        href  = link.get("href", "")
+        title = link.get_text(strip=True)
+
+        # Filtrar navegación y duplicados
+        if any(kw in href for kw in NAV_KEYWORDS):
+            continue
+        if not title or len(title) < 8:
+            continue
+        if href in vistos:
+            continue
+        vistos.add(href)
+
+        url_receta = href if href.startswith("http") else f"https://www.ceciliatupac.com{href}"
+
+        resultados.append({
+            "title":       title,
+            "source_url":  url_receta,
+            "source":      "ceciliatupac",
+            "search_term": "papa",
+            "lang":        "es",
+            "country":     "PE",
+        })
+
+    print(f"  -> {len(resultados)} recetas encontradas")
+    time.sleep(RATE_LIMIT_SECONDS)
+    return resultados
+
+
+def scrape_mariaperez(max_pages: int = 5) -> list[dict]:
+    """WordPress blog — paginación /category/patatas/page/{n}/"""
+    resultados = []
+
+    for page in range(1, max_pages + 1):
+        if page == 1:
+            url = "https://www.mariaperezmunoz.com/category/patatas/"
+        else:
+            url = f"https://www.mariaperezmunoz.com/category/patatas/page/{page}/"
+
+        print(f"  MariaPerez pág {page}: {url}")
+
+        soup = fetch_page(url)
+        if not soup:
+            break
+
+        articles = soup.find_all("article")
+        if not articles:
+            print(f"  [!] Sin artículos en página {page}, terminando")
+            break
+
+        nuevas = 0
+        for article in articles:
+            # Buscar el link con el título real:
+            # el primer link suele ser la imagen (texto vacío)
+            # el título está en el link con texto de 10+ caracteres
+            title = ""
+            href  = ""
+
+            for link in article.find_all("a", href=True):
+                texto = link.get_text(strip=True)
+                # Ignorar: texto vacío, fechas cortas ("15 Feb '19"), textos muy cortos
+                if len(texto) >= 10:
+                    title = texto
+                    href  = link.get("href", "")
+                    break
+
+            if not title or not href:
+                continue
+
+            resultados.append({
+                "title":       title,
+                "source_url":  href,
+                "source":      "mariaperez",
+                "search_term": "patatas",
                 "lang":        "es",
                 "country":     "ES",
             })
