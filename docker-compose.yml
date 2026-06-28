@@ -61,18 +61,6 @@ services:
       "
     restart: no
 
-  redis:
-    image: redis:7.2-alpine
-    container_name: ph_redis
-    command: redis-server --appendonly yes --appendfsync everysec
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - ph_net
-    restart: unless-stopped
-
   neo4j:
     image: neo4j:5.18
     container_name: ph_neo4j
@@ -98,7 +86,6 @@ services:
       - .env
     depends_on:
       - mongo1
-      - redis
       - neo4j
     volumes:
       - .:/app
@@ -110,7 +97,6 @@ volumes:
   mongo1_data:
   mongo2_data:
   mongo3_data:
-  redis_data:
   neo4j_data:
 
 networks:

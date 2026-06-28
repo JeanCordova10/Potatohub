@@ -7,20 +7,13 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 from pymongo import MongoClient
 
+from etl.config import HEADERS
+
 load_dotenv()
 
-MONGO_URI   = os.getenv("MONGO_URI_LOCAL", "mongodb://localhost:27017/?directConnection=true")
-MONGO_DB    = os.getenv("MONGO_DB", "potatohub")
-RATE_LIMIT  = 3  # segundos entre requests
-
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
-    ),
-    "Accept-Language": "es-PE,es;q=0.9",
-}
+MONGO_URI  = os.getenv("MONGO_URI_LOCAL", "mongodb://localhost:27017/?directConnection=true")
+MONGO_DB   = os.getenv("MONGO_DB", "potatohub")
+RATE_LIMIT = 3
 
 
 def fetch(url: str) -> BeautifulSoup | None:
