@@ -1,26 +1,22 @@
-# Términos de búsqueda para Cookpad PE
+# Terminos de busqueda para Cookpad PE
 COOKPAD_TERMS = [
-    "papa", "causa", "papa-a-la-huancaina",
-    "papa-rellena", "ocopa", "papa-seca",
-    "papa-amarilla", "pure-de-papa", "papas-fritas"
-]
-
-# Términos para RecetasGratis
-RECETASGRATIS_TERMS = [
     "papa",
-    "pure de papa",
-    "croquetas de papa",
-    "papas fritas",
-    "causa limeña"
+    "causa",
+    "papa-a-la-huancaina",
+    "papa-rellena",
+    "ocopa",
+    "papa-seca",
+    "papa-amarilla",
+    "pure-de-papa",
+    "papas-fritas",
 ]
 
-# Máximo de páginas por término (para no sobrecargar los servidores)
-MAX_PAGES = 20
-MAX_PAGES_RECETASGRATIS = 1   # solo 1 página porque la paginación no funciona
-# 1 request cada 3 segundos (scraping responsable)
-RATE_LIMIT_SECONDS = 4
+# Maximo de paginas por termino en Cookpad
+MAX_PAGES = 40
 
-# Headers para simular un navegador normal
+# 1 request cada 4 segundos para scraping responsable
+RATE_LIMIT_SECONDS = 5
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -31,15 +27,14 @@ HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 }
 
-# Clasificación de categorías por palabras clave en el título
 CATEGORY_KEYWORDS = {
-    "CAUSA":    ["causa", "causa limeña", "causa limena"],
-    "PURE":     ["puré", "pure", "purée"],
-    "OCOPA":    ["ocopa", "huancaína", "huancaina"],
-    "FRITA":    ["frita", "fritas", "chips", "croqueta", "croquetas"],
-    "RELLENA":  ["rellena", "rellenas", "relleno"],
-    "SOPA":     ["sopa", "chupe", "caldo", "locro", "crema"],
-    "GUISO":    ["guiso", "estofado", "saltado", "seco", "aji de"],
+    "CAUSA": ["causa", "causa limeña", "causa limena"],
+    "PURE": ["puré", "pure", "purée"],
+    "OCOPA": ["ocopa", "huancaína", "huancaina"],
+    "FRITA": ["frita", "fritas", "chips", "croqueta", "croquetas"],
+    "RELLENA": ["rellena", "rellenas", "relleno"],
+    "SOPA": ["sopa", "chupe", "caldo", "locro", "crema"],
+    "GUISO": ["guiso", "estofado", "saltado", "seco", "aji de"],
     "HORNEADA": ["horneada", "horneadas", "al horno", "gratinada", "gratín"],
-    "CHUÑO":    ["chuño", "chuno", "papa seca", "moraya"],
+    "CHUÑO": ["chuño", "chuno", "papa seca", "moraya"],
 }
