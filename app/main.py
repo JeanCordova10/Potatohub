@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
-from app import database
+from app import database, neo4j_db
 from app.routers import recipes
 
 load_dotenv()
@@ -14,8 +14,11 @@ load_dotenv()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     database.init_client()
+    await neo4j_db.init_driver()
+    await neo4j_db.ensure_constraints()
     yield
     database.close_client()
+    await neo4j_db.close_driver()
 
 
 app = FastAPI(

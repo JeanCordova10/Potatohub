@@ -36,6 +36,7 @@ class SearchResponse(BaseModel):
 
 class InteractionRequest(BaseModel):
     action: str
+    user_id: str = "anonymous"
 
 
 class InteractionResponse(BaseModel):
