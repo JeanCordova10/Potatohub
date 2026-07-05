@@ -139,6 +139,7 @@ document.addEventListener("DOMContentLoaded", function () {
         item.stats = item.stats && typeof item.stats === "object" ? item.stats : { views: 0, saved: 0 };
         item.stats.views = Number(item.stats.views || 0);
         item.stats.saved = Number(item.stats.saved || 0);
+        item.stats.cooked = Number(item.stats.cooked || 0);
         item.score = Number(item.score || 0);
         item.created_at = item.created_at || new Date().toISOString();
         item.updated_at = item.updated_at || item.created_at;
@@ -314,6 +315,11 @@ document.addEventListener("DOMContentLoaded", function () {
             var savedB = b.stats && b.stats.saved ? Number(b.stats.saved) : 0;
             if (savedB !== savedA) {
                 return savedB - savedA;
+            }
+            var cookedA = a.stats && a.stats.cooked ? Number(a.stats.cooked) : 0;
+            var cookedB = b.stats && b.stats.cooked ? Number(b.stats.cooked) : 0;
+            if (cookedB !== cookedA) {
+                return cookedB - cookedA;
             }
             var viewsA = a.stats && a.stats.views ? Number(a.stats.views) : 0;
             var viewsB = b.stats && b.stats.views ? Number(b.stats.views) : 0;
@@ -742,6 +748,10 @@ document.addEventListener("DOMContentLoaded", function () {
         return headers;
     }
 
+    function currentUserId() {
+        return authState.user && authState.user.id ? String(authState.user.id) : "";
+    }
+
     function setAuthStatus(message, kind) {
         if (!authStatus) {
             return;
@@ -985,12 +995,16 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         var views = card.querySelector('[data-field="views"]');
         var saved = card.querySelector('[data-field="saved"]');
+        var cooked = card.querySelector('[data-field="cooked"]');
         var score = card.querySelector('[data-field="score"]');
         if (views) {
             views.textContent = "Views: " + data.views;
         }
         if (saved) {
             saved.textContent = "Saved: " + data.saved;
+        }
+        if (cooked) {
+            cooked.textContent = "Cooked: " + (data.cooked || 0);
         }
         if (score) {
             score.textContent = "Score: " + data.score;
@@ -1003,12 +1017,16 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         var views = recipeModal.querySelector('[data-detail-field="views"]');
         var saved = recipeModal.querySelector('[data-detail-field="saved"]');
+        var cooked = recipeModal.querySelector('[data-detail-field="cooked"]');
         var score = recipeModal.querySelector('[data-detail-field="score"]');
         if (views) {
             views.textContent = "Views: " + data.views;
         }
         if (saved) {
             saved.textContent = "Saved: " + data.saved;
+        }
+        if (cooked) {
+            cooked.textContent = "Cooked: " + (data.cooked || 0);
         }
         if (score) {
             score.textContent = "Score: " + data.score;
@@ -1037,6 +1055,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var instructionCount = Array.isArray(recipe.instructions) ? recipe.instructions.length : 0;
         var views = recipe.stats && recipe.stats.views ? recipe.stats.views : 0;
         var saved = recipe.stats && recipe.stats.saved ? recipe.stats.saved : 0;
+        var cooked = recipe.stats && recipe.stats.cooked ? recipe.stats.cooked : 0;
         var score = recipe.score != null ? recipe.score : 0;
         var sourceName = escapeHtml(recipe.source_name || "demo");
         var sourceUrl = recipe.source_url ? escapeHtml(recipe.source_url) : "";
@@ -1062,12 +1081,14 @@ document.addEventListener("DOMContentLoaded", function () {
             '<span data-detail-field="time">' + formatTime(cookingTime) + "</span>",
             '<span data-detail-field="views">Views: ' + views + "</span>",
             '<span data-detail-field="saved">Saved: ' + saved + "</span>",
+            '<span data-detail-field="cooked">Cooked: ' + cooked + "</span>",
             '<span data-detail-field="score">Score: ' + score + "</span>",
             '<span>' + formatCount(ingredientCount, "ingrediente", "ingredientes") + "</span>",
             '<span>' + formatCount(instructionCount, "paso", "pasos") + "</span>",
             "</div>",
             '<div class="recipe-detail-actions">',
             '<button class="action-btn" type="button" onclick="interact(\'' + escapeJs(recipe.id) + '\', \'save\')">Guardar</button>',
+            '<button class="action-btn" type="button" onclick="interact(\'' + escapeJs(recipe.id) + '\', \'cook\')">Cocinada</button>',
             '<button class="action-btn secondary" type="button" onclick="getRecommendations(\'' + escapeJs(recipe.id) + '\')">Similares</button>',
             sourceUrl
                 ? '<a class="action-link" href="' + sourceUrl + '" target="_blank" rel="noopener">Open source</a>'
@@ -1365,6 +1386,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var instructionCount = Array.isArray(recipe.instructions) ? recipe.instructions.length : 0;
         var views = recipe.stats && recipe.stats.views ? recipe.stats.views : 0;
         var saved = recipe.stats && recipe.stats.saved ? recipe.stats.saved : 0;
+        var cooked = recipe.stats && recipe.stats.cooked ? recipe.stats.cooked : 0;
         var score = recipe.score != null ? recipe.score : 0;
         var sourceName = escapeHtml(recipe.source_name || "demo");
         var sourceUrl = recipe.source_url ? escapeHtml(recipe.source_url) : "";
@@ -1394,6 +1416,7 @@ document.addEventListener("DOMContentLoaded", function () {
             '<span data-field="time">' + formatTime(cookingTime) + "</span>",
             '<span data-field="views">Views: ' + views + "</span>",
             '<span data-field="saved">Saved: ' + saved + "</span>",
+            '<span data-field="cooked">Cooked: ' + cooked + "</span>",
             '<span data-field="score">Score: ' + score + "</span>",
             '<span>' + formatCount(ingredientCount, "ingrediente", "ingredientes") + "</span>",
             '<span>' + formatCount(instructionCount, "paso", "pasos") + "</span>",
@@ -1620,13 +1643,32 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     async function interact(recipeId, action) {
+        if ((action === "save" || action === "cook") && !currentUserId()) {
+            setStatusMessage("Inicia sesion para guardar o marcar recetas como cocinadas", "warning");
+            openAuthModal("login");
+            return null;
+        }
+
+        var snapshot = null;
+        var existingRecipe = getRecipeById(recipeId);
+        if (existingRecipe) {
+            snapshot = {
+                views: existingRecipe.stats && existingRecipe.stats.views ? existingRecipe.stats.views : 0,
+                saved: existingRecipe.stats && existingRecipe.stats.saved ? existingRecipe.stats.saved : 0,
+                cooked: existingRecipe.stats && existingRecipe.stats.cooked ? existingRecipe.stats.cooked : 0,
+                score: existingRecipe.score != null ? existingRecipe.score : 0,
+            };
+        }
+
         var localRecipe = updateRecipeInCatalog(recipeId, function (recipe) {
             if (action === "view") {
                 recipe.stats.views += 1;
             } else if (action === "save") {
                 recipe.stats.saved += 1;
+            } else if (action === "cook") {
+                recipe.stats.cooked += 1;
             }
-            recipe.score = Math.round(((recipe.stats.saved * 5.0) + (recipe.stats.views * 0.5)) * 100) / 100;
+            recipe.score = Math.round(((recipe.stats.saved * 5.0) + (recipe.stats.views * 0.5) + (recipe.stats.cooked * 8.0)) * 100) / 100;
         });
 
         if (!localRecipe) {
@@ -1637,8 +1679,10 @@ document.addEventListener("DOMContentLoaded", function () {
             success: true,
             recipe_id: recipeId,
             action: action,
+            user_id: currentUserId() || "anonymous",
             views: localRecipe.stats.views,
             saved: localRecipe.stats.saved,
+            cooked: localRecipe.stats.cooked || 0,
             score: localRecipe.score,
         };
 
@@ -1649,6 +1693,7 @@ document.addEventListener("DOMContentLoaded", function () {
             recipeCache[recipeId].stats = {
                 views: localData.views,
                 saved: localData.saved,
+                cooked: localData.cooked,
             };
             recipeCache[recipeId].score = localData.score;
         }
@@ -1681,13 +1726,16 @@ document.addEventListener("DOMContentLoaded", function () {
         try {
             var response = await fetch(API_BASE + "/recipes/" + encodeURIComponent(recipeId) + "/interact", {
                 method: "POST",
-                headers: {
+                headers: Object.assign({
                     "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ action: action, user_id: getOrCreateUserId() }),
+                }, authHeaders()),
+                body: JSON.stringify({ action: action, user_id: currentUserId() || getOrCreateUserId() }),
             });
             if (!response.ok) {
-                throw new Error("interaction failed");
+                var failure = await response.json().catch(function () {
+                    return {};
+                });
+                throw new Error((failure && failure.detail) || "interaction failed");
             }
             var data = await response.json();
             syncRecipeCardStats(recipeId, data);
@@ -1695,19 +1743,64 @@ document.addEventListener("DOMContentLoaded", function () {
             updateRecipeInCatalog(recipeId, function (recipe) {
                 recipe.stats.views = data.views;
                 recipe.stats.saved = data.saved;
+                recipe.stats.cooked = data.cooked || 0;
                 recipe.score = data.score;
             });
             if (recipeCache[recipeId]) {
                 recipeCache[recipeId].stats = {
                     views: data.views,
                     saved: data.saved,
+                    cooked: data.cooked || 0,
                 };
                 recipeCache[recipeId].score = data.score;
             }
             return data;
         } catch (error) {
+            if (action !== "view" && /login|auth/i.test(String(error && error.message))) {
+                if (snapshot) {
+                    updateRecipeInCatalog(recipeId, function (recipe) {
+                        recipe.stats.views = snapshot.views;
+                        recipe.stats.saved = snapshot.saved;
+                        recipe.stats.cooked = snapshot.cooked;
+                        recipe.score = snapshot.score;
+                    });
+                    syncRecipeCardStats(recipeId, snapshot);
+                    syncRecipeModalStats(recipeId, snapshot);
+                }
+                openAuthModal("login");
+            }
             console.warn("Interaction sync fallback:", error);
             return localData;
+        }
+    }
+
+    async function getPersonalRecommendations() {
+        if (!currentUserId()) {
+            setStatusMessage("Inicia sesion para ver recomendaciones personalizadas", "warning");
+            openAuthModal("login");
+            return;
+        }
+
+        recommendResults.innerHTML = '<div class="loading-state">Loading recommendations for you...</div>';
+
+        try {
+            var response = await fetch(API_BASE + "/users/me/recommendations?limit=6", {
+                headers: authHeaders(),
+            });
+            if (!response.ok) {
+                throw new Error("personalized recommendations failed");
+            }
+            var data = await response.json();
+            var recipes = data.results || [];
+            if (!recipes.length) {
+                recommendResults.innerHTML = '<div class="empty-state">No personal recommendations available yet.</div>';
+            } else {
+                renderRecipeGrid(recommendResults, recipes);
+            }
+            setActiveTab("recomendaciones");
+        } catch (error) {
+            console.warn("Personal recommendation error:", error);
+            recommendResults.innerHTML = '<div class="empty-state">No personal recommendations available yet.</div>';
         }
     }
 
@@ -1724,7 +1817,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 params.set("mode", mode);
 
                 var response = await fetch(
-                    API_BASE + "/recipes/" + encodeURIComponent(recipeId) + "/recommendations?" + params.toString()
+                    API_BASE + "/recipes/" + encodeURIComponent(recipeId) + "/recommendations?" + params.toString(),
+                    {
+                        headers: authHeaders(),
+                    }
                 );
                 if (!response.ok) {
                     throw new Error("recommendations failed");
@@ -1879,6 +1975,8 @@ document.addEventListener("DOMContentLoaded", function () {
         var recipeId = recipeIdInput.value.trim();
         if (recipeId) {
             getRecommendations(recipeId);
+        } else {
+            getPersonalRecommendations();
         }
     });
 
