@@ -114,8 +114,7 @@ async def refresh():
     )
 
 
-<<<<<<< HEAD
-=======
+
 @router.get("/filters")
 async def filters():
     col = get_recipes()
@@ -129,7 +128,6 @@ async def filters():
     }
 
 
->>>>>>> aa8affc (Add Mongo and Neo4j user support)
 @router.get("/search", response_model=SearchResponse)
 async def search(
     q: str = "*",
