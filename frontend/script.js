@@ -1,12 +1,15 @@
 document.addEventListener("DOMContentLoaded", function () {
     const API_BASE = "/api";
-    const PAGE_SIZE = 6;
+    const DEFAULT_PAGE_SIZE = 12;
+    const AUTH_STORAGE_KEY = "potatohub.auth";
+    const UI_STORAGE_KEY = "potatohub.ui";
 
     var state = {
         page: 0,
         query: "",
         category: "",
         difficulty: "",
+        pageSize: DEFAULT_PAGE_SIZE,
     };
 
     var tabs = Array.prototype.slice.call(document.querySelectorAll(".tab-btn"));
@@ -16,8 +19,10 @@ document.addEventListener("DOMContentLoaded", function () {
     var filterCategory = document.getElementById("filterCategory");
     var filterDifficulty = document.getElementById("filterDifficulty");
     var recommendationMode = document.getElementById("recommendationMode");
+    var pageSizeSelect = document.getElementById("pageSizeSelect");
     var searchResults = document.getElementById("searchResults");
     var searchPagination = document.getElementById("searchPagination");
+    var paginationSummary = document.getElementById("paginationSummary");
     var rankingResults = document.getElementById("rankingResults");
     var recommendResults = document.getElementById("recommendResults");
     var recipeIdInput = document.getElementById("recipeIdInput");
@@ -27,16 +32,35 @@ document.addEventListener("DOMContentLoaded", function () {
     var catalogCount = document.getElementById("catalogCount");
     var apiStatus = document.getElementById("apiStatus");
     var catalogModeBadge = document.getElementById("catalogModeBadge");
+    var authBtn = document.getElementById("authBtn");
+    var userChip = document.getElementById("userChip");
+    var logoutBtn = document.getElementById("logoutBtn");
     var recipeModal = document.getElementById("recipeModal");
     var recipeModalBody = document.getElementById("recipeModalBody");
     var recipeModalTitle = document.getElementById("recipeModalTitle");
     var recipeModalClose = document.getElementById("recipeModalClose");
+    var authModal = document.getElementById("authModal");
+    var authModalClose = document.getElementById("authModalClose");
+    var authModalTitle = document.getElementById("authModalTitle");
+    var authStatus = document.getElementById("authStatus");
+    var loginForm = document.getElementById("loginForm");
+    var registerForm = document.getElementById("registerForm");
+    var authTabButtons = Array.prototype.slice.call(document.querySelectorAll(".auth-tab"));
+    var loginEmail = document.getElementById("loginEmail");
+    var loginPassword = document.getElementById("loginPassword");
+    var registerName = document.getElementById("registerName");
+    var registerEmail = document.getElementById("registerEmail");
+    var registerPassword = document.getElementById("registerPassword");
     var recipeCache = {};
     var currentRecipeId = "";
     var catalogRecipes = [];
     var catalogMode = "loading";
     var apiOnline = false;
     var liveCatalogLoading = false;
+    var authState = {
+        token: "",
+        user: null,
+    };
 
     function escapeHtml(value) {
         return String(value == null ? "" : value)
@@ -111,7 +135,7 @@ document.addEventListener("DOMContentLoaded", function () {
         item.tags = Array.isArray(item.tags) ? item.tags : [];
         item.source_name = String(item.source_name || "demo");
         item.source_url = String(item.source_url || "");
-        item.image_url = item.image_url ? String(item.image_url) : "";
+        item.image_url = item.image_url ? String(item.image_url).trim() : "";
         item.stats = item.stats && typeof item.stats === "object" ? item.stats : { views: 0, saved: 0 };
         item.stats.views = Number(item.stats.views || 0);
         item.stats.saved = Number(item.stats.saved || 0);
@@ -235,7 +259,7 @@ document.addEventListener("DOMContentLoaded", function () {
         category = normalizeTextValue(category);
         difficulty = normalizeTextValue(difficulty);
         page = Math.max(Number(page) || 0, 0);
-        size = Math.max(Number(size) || PAGE_SIZE, 1);
+        size = Math.max(Number(size) || DEFAULT_PAGE_SIZE, 1);
 
         var tokens = tokenizeText(query);
         var matches = [];
@@ -385,12 +409,13 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    function buildFilterOptions() {
+    function buildFilterOptions(recipes) {
+        recipes = Array.isArray(recipes) ? recipes : catalogRecipes;
         var categoryCounts = {};
         var difficultyCounts = {};
         var sourceCounts = {};
 
-        catalogRecipes.forEach(function (recipe) {
+        recipes.forEach(function (recipe) {
             var category = String(recipe.category || "").trim();
             var difficulty = String(recipe.difficulty || "").trim();
             var source = String(recipe.source_name || "").trim();
@@ -440,6 +465,45 @@ document.addEventListener("DOMContentLoaded", function () {
             categories: categories,
             difficulties: difficulties,
             sources: sources,
+        };
+    }
+
+    function normalizeRemoteFilterOptions(payload) {
+        if (!payload || typeof payload !== "object") {
+            return null;
+        }
+
+        function toOptionList(items, formatter) {
+            return (Array.isArray(items) ? items : []).map(function (item) {
+                if (typeof item === "string") {
+                    return formatter({ value: item, label: item, count: 0 });
+                }
+                if (!item || typeof item !== "object") {
+                    return null;
+                }
+                var value = String(item.value || item.name || item.label || "").trim();
+                if (!value) {
+                    return null;
+                }
+                return formatter({
+                    value: value,
+                    label: String(item.label || item.value || item.name || value),
+                    count: typeof item.count === "number" ? item.count : 0,
+                });
+            }).filter(Boolean);
+        }
+
+        return {
+            categories: toOptionList(payload.categories, function (item) {
+                return item;
+            }),
+            difficulties: toOptionList(payload.difficulties, function (item) {
+                item.label = item.label.charAt(0).toUpperCase() + item.label.slice(1);
+                return item;
+            }),
+            sources: toOptionList(payload.sources, function (item) {
+                return item;
+            }),
         };
     }
 
@@ -581,6 +645,326 @@ document.addEventListener("DOMContentLoaded", function () {
         ),
     ];
 
+    function readJsonStorage(key) {
+        try {
+            var raw = window.localStorage.getItem(key);
+            if (!raw) {
+                return null;
+            }
+            return JSON.parse(raw);
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function writeJsonStorage(key, value) {
+        try {
+            if (value == null) {
+                window.localStorage.removeItem(key);
+            } else {
+                window.localStorage.setItem(key, JSON.stringify(value));
+            }
+        } catch (error) {
+            // Ignore storage failures in private mode / restricted browsers.
+        }
+    }
+
+    function loadStoredPreferences() {
+        var settings = readJsonStorage(UI_STORAGE_KEY) || {};
+        var preferredPageSize = Number(settings.pageSize || DEFAULT_PAGE_SIZE);
+        if ([6, 12, 24].indexOf(preferredPageSize) === -1) {
+            preferredPageSize = DEFAULT_PAGE_SIZE;
+        }
+        state.pageSize = preferredPageSize;
+        if (pageSizeSelect) {
+            pageSizeSelect.value = String(preferredPageSize);
+        }
+    }
+
+    function savePreferences() {
+        writeJsonStorage(UI_STORAGE_KEY, {
+            pageSize: state.pageSize,
+        });
+    }
+
+    function getPageSize() {
+        var selected = Number(pageSizeSelect && pageSizeSelect.value ? pageSizeSelect.value : state.pageSize);
+        if ([6, 12, 24].indexOf(selected) === -1) {
+            selected = DEFAULT_PAGE_SIZE;
+        }
+        return selected;
+    }
+
+    function setPageSize(pageSize) {
+        var value = Number(pageSize) || DEFAULT_PAGE_SIZE;
+        if ([6, 12, 24].indexOf(value) === -1) {
+            value = DEFAULT_PAGE_SIZE;
+        }
+        state.pageSize = value;
+        if (pageSizeSelect) {
+            pageSizeSelect.value = String(value);
+        }
+        savePreferences();
+    }
+
+    function loadStoredAuth() {
+        var session = readJsonStorage(AUTH_STORAGE_KEY);
+        if (!session || !session.token) {
+            return;
+        }
+        authState.token = String(session.token);
+        authState.user = session.user || null;
+    }
+
+    function saveAuthState() {
+        if (!authState.token || !authState.user) {
+            writeJsonStorage(AUTH_STORAGE_KEY, null);
+            return;
+        }
+        writeJsonStorage(AUTH_STORAGE_KEY, {
+            token: authState.token,
+            user: authState.user,
+        });
+    }
+
+    function clearAuthState() {
+        authState.token = "";
+        authState.user = null;
+        saveAuthState();
+        renderAuthState();
+    }
+
+    function authHeaders() {
+        var headers = {};
+        if (authState.token) {
+            headers.Authorization = "Bearer " + authState.token;
+        }
+        return headers;
+    }
+
+    function setAuthStatus(message, kind) {
+        if (!authStatus) {
+            return;
+        }
+        authStatus.textContent = message || "";
+        authStatus.className = "inline-status" + (kind ? " " + kind : "");
+    }
+
+    function setAuthModalMode(mode) {
+        var activeMode = mode === "register" ? "register" : "login";
+
+        authTabButtons.forEach(function (button) {
+            button.classList.toggle("active", button.dataset.authTab === activeMode);
+        });
+
+        if (loginForm) {
+            loginForm.classList.toggle("active", activeMode === "login");
+        }
+        if (registerForm) {
+            registerForm.classList.toggle("active", activeMode === "register");
+        }
+        if (authModalTitle) {
+            authModalTitle.textContent = activeMode === "register" ? "Crear cuenta" : "Iniciar sesion";
+        }
+    }
+
+    function openAuthModal(mode) {
+        if (!authModal) {
+            return;
+        }
+        setAuthStatus("", "idle");
+        setAuthModalMode(mode || "login");
+        authModal.hidden = false;
+        authModal.classList.add("is-open");
+        authModal.style.display = "grid";
+        authModal.setAttribute("aria-hidden", "false");
+        document.body.classList.add("modal-open");
+    }
+
+    function closeAuthModal() {
+        if (!authModal) {
+            return;
+        }
+        authModal.hidden = true;
+        authModal.classList.remove("is-open");
+        authModal.style.display = "none";
+        authModal.setAttribute("aria-hidden", "true");
+        document.body.classList.remove("modal-open");
+    }
+
+    function renderAuthState() {
+        if (!authBtn || !userChip || !logoutBtn) {
+            return;
+        }
+
+        var isLoggedIn = Boolean(authState.user && authState.token);
+        authBtn.hidden = isLoggedIn;
+        userChip.hidden = !isLoggedIn;
+        logoutBtn.hidden = !isLoggedIn;
+        authBtn.style.display = isLoggedIn ? "none" : "";
+        userChip.style.display = isLoggedIn ? "inline-flex" : "none";
+        logoutBtn.style.display = isLoggedIn ? "" : "none";
+
+        if (isLoggedIn) {
+            var userName = authState.user.name || authState.user.email || "Usuario";
+            userChip.textContent = userName;
+            userChip.title = authState.user.email || userName;
+        } else {
+            userChip.textContent = "";
+            userChip.title = "";
+        }
+    }
+
+    async function restoreAuthSession() {
+        loadStoredAuth();
+        renderAuthState();
+
+        if (!authState.token) {
+            return;
+        }
+
+        try {
+            var response = await fetch(API_BASE + "/auth/me", {
+                headers: authHeaders(),
+            });
+            if (!response.ok) {
+                throw new Error("session invalid");
+            }
+            applyAuthSession({
+                token: authState.token,
+                user: await response.json(),
+            });
+        } catch (error) {
+            clearAuthState();
+        }
+    }
+
+    function applyAuthSession(session) {
+        authState.token = String(session && session.token ? session.token : "");
+        authState.user = session && session.user ? session.user : null;
+        saveAuthState();
+        renderAuthState();
+    }
+
+    async function sendAuthRequest(path, payload) {
+        var response = await fetch(API_BASE + "/auth/" + path, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+        });
+        var data = await response.json().catch(function () {
+            return {};
+        });
+        if (!response.ok) {
+            throw new Error((data && data.detail) || "Auth request failed");
+        }
+        return data;
+    }
+
+    async function submitLoginForm(event) {
+        event.preventDefault();
+        if (!loginEmail || !loginPassword) {
+            return;
+        }
+
+        setAuthStatus("Ingresando...", "loading");
+        try {
+            var session = await sendAuthRequest("login", {
+                email: loginEmail.value,
+                password: loginPassword.value,
+            });
+            applyAuthSession(session);
+            setAuthStatus("Sesion iniciada como " + (session.user && session.user.name ? session.user.name : "usuario"), "success");
+            closeAuthModal();
+            setStatusMessage("Sesion iniciada correctamente", "success");
+        } catch (error) {
+            setAuthStatus(error.message || "No se pudo iniciar sesion", "error");
+        }
+    }
+
+    async function submitRegisterForm(event) {
+        event.preventDefault();
+        if (!registerName || !registerEmail || !registerPassword) {
+            return;
+        }
+
+        setAuthStatus("Creando cuenta...", "loading");
+        try {
+            var session = await sendAuthRequest("register", {
+                name: registerName.value,
+                email: registerEmail.value,
+                password: registerPassword.value,
+            });
+            applyAuthSession(session);
+            setAuthStatus("Cuenta creada y sesion activa", "success");
+            closeAuthModal();
+            setStatusMessage("Cuenta creada correctamente", "success");
+        } catch (error) {
+            setAuthStatus(error.message || "No se pudo crear la cuenta", "error");
+        }
+    }
+
+    function logoutUser() {
+        clearAuthState();
+        setAuthStatus("Sesion cerrada", "warning");
+        closeAuthModal();
+        setStatusMessage("Sesion cerrada", "warning");
+    }
+
+    function createFallbackImageData(recipe, label) {
+        var tone = getRecipeTone(recipe);
+        var palette = {
+            potato: ["#a96d1f", "#f1cf74", "#fff8e2"],
+            soup: ["#2c6f61", "#8fd6c5", "#f1fbf8"],
+            salad: ["#4f8f59", "#b6dea9", "#f2fbec"],
+            breakfast: ["#b76439", "#f1b079", "#fff4ea"],
+            main: ["#7c5434", "#d8b082", "#fbf3e8"],
+            snack: ["#8c5c2b", "#e4c37e", "#fff6e5"],
+            dessert: ["#ae6b56", "#efc1ae", "#fff4ef"],
+            neutral: ["#6d7b88", "#d2dae3", "#f5f8fb"],
+        };
+        var colors = palette[tone] || palette.neutral;
+        var safeTitle = escapeHtml(truncateText(recipe && recipe.title ? recipe.title : label || "PotatoHub", 36));
+        var safeCategory = escapeHtml(String(recipe && recipe.category ? recipe.category : "Recipe"));
+        var svg = [
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" role="img" aria-label="' + safeTitle + '">',
+            "<defs>",
+            '<linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">',
+            '<stop offset="0%" stop-color="' + colors[0] + '"/>',
+            '<stop offset="58%" stop-color="' + colors[1] + '"/>',
+            '<stop offset="100%" stop-color="' + colors[2] + '"/>',
+            "</linearGradient>",
+            "</defs>",
+            '<rect width="800" height="520" fill="url(#g)"/>',
+            '<circle cx="642" cy="104" r="122" fill="#ffffff" opacity="0.26"/>',
+            '<circle cx="104" cy="412" r="160" fill="#ffffff" opacity="0.18"/>',
+            '<text x="56" y="90" fill="#ffffff" fill-opacity="0.92" font-family="Georgia, serif" font-size="26" font-weight="700" letter-spacing="4">POTATOHUB</text>',
+            '<text x="56" y="230" fill="#18212d" fill-opacity="0.9" font-family="Georgia, serif" font-size="42" font-weight="700">' + safeTitle + "</text>",
+            '<text x="56" y="286" fill="#18212d" fill-opacity="0.74" font-family="Trebuchet MS, sans-serif" font-size="22" font-weight="600">' + safeCategory + "</text>",
+            "</svg>",
+        ].join("");
+        return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+    }
+
+    function renderRecipeImage(recipe, className, altText) {
+        var fallback = createFallbackImageData(recipe, altText);
+        var imageUrl = recipe && recipe.image_url ? String(recipe.image_url).trim() : "";
+        if (!imageUrl) {
+            imageUrl = fallback;
+        }
+        return [
+            '<img class="' + className + '"',
+            ' src="' + escapeHtml(imageUrl) + '"',
+            ' alt="' + escapeHtml(altText || recipe.title || "Recipe") + '"',
+            ' loading="lazy" decoding="async" referrerpolicy="no-referrer"',
+            ' data-fallback="' + escapeHtml(fallback) + '"',
+            ' onerror="this.onerror=null;if(this.dataset.fallback&&this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"',
+            ">",
+        ].join("");
+    }
+
     function storeRecipe(recipe) {
         if (recipe && recipe.id) {
             recipeCache[recipe.id] = recipe;
@@ -656,14 +1040,11 @@ document.addEventListener("DOMContentLoaded", function () {
         var score = recipe.score != null ? recipe.score : 0;
         var sourceName = escapeHtml(recipe.source_name || "demo");
         var sourceUrl = recipe.source_url ? escapeHtml(recipe.source_url) : "";
-        var imageUrl = recipe.image_url ? escapeHtml(recipe.image_url) : "";
         var ingredients = Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
         var instructions = Array.isArray(recipe.instructions) ? recipe.instructions : [];
         var tags = Array.isArray(recipe.tags) ? recipe.tags : [];
         var tone = getRecipeTone(recipe);
-        var visual = imageUrl
-            ? '<img class="recipe-detail-image" src="' + imageUrl + '" alt="' + title + '" loading="lazy">'
-            : '<div class="recipe-detail-placeholder">' + escapeHtml((recipe.title || "R").charAt(0).toUpperCase()) + "</div>";
+        var visual = renderRecipeImage(recipe, "recipe-detail-image", recipe.title || "Recipe");
 
         return [
             '<article class="recipe-detail" data-tone="' + escapeHtml(tone) + '">',
@@ -825,6 +1206,50 @@ document.addEventListener("DOMContentLoaded", function () {
         state.difficulty = filterDifficulty ? filterDifficulty.value : "";
     }
 
+    async function loadRemoteFilterOptions() {
+        if (!apiOnline) {
+            return false;
+        }
+
+        try {
+            var response = await fetch(API_BASE + "/recipes/filters");
+            if (!response.ok) {
+                throw new Error("filters failed");
+            }
+            var filters = normalizeRemoteFilterOptions(await response.json());
+            if (!filters) {
+                throw new Error("invalid filters payload");
+            }
+            populateSelect(filterCategory, filters.categories || [], "All categories");
+            populateSelect(filterDifficulty, filters.difficulties || [], "All difficulty");
+            state.category = filterCategory ? filterCategory.value : "";
+            state.difficulty = filterDifficulty ? filterDifficulty.value : "";
+            return true;
+        } catch (error) {
+            console.warn("Remote filters unavailable:", error);
+            return false;
+        }
+    }
+
+    async function fetchSearchResultsFromApi(query, category, difficulty, page, size) {
+        var params = new URLSearchParams();
+        params.set("q", query && query.trim() ? query.trim() : "*");
+        params.set("page", String(Math.max(Number(page) || 0, 0)));
+        params.set("size", String(Math.max(Number(size) || DEFAULT_PAGE_SIZE, 1)));
+        if (category) {
+            params.set("category", category);
+        }
+        if (difficulty) {
+            params.set("difficulty", difficulty);
+        }
+
+        var response = await fetch(API_BASE + "/recipes/search?" + params.toString());
+        if (!response.ok) {
+            throw new Error("search failed");
+        }
+        return response.json();
+    }
+
     async function fetchAllCatalogFromApi() {
         var collected = [];
         var page = 0;
@@ -945,12 +1370,9 @@ document.addEventListener("DOMContentLoaded", function () {
         var sourceUrl = recipe.source_url ? escapeHtml(recipe.source_url) : "";
         var ingredients = Array.isArray(recipe.ingredients) ? recipe.ingredients.slice(0, 3) : [];
         var tags = Array.isArray(recipe.tags) ? recipe.tags.slice(0, 3) : [];
-        var imageUrl = recipe.image_url ? escapeHtml(recipe.image_url) : "";
         var rankBadge = options.rank ? '<div class="rank-badge">#' + options.rank + "</div>" : "";
         var tone = getRecipeTone(recipe);
-        var visual = imageUrl
-            ? '<img class="recipe-image" src="' + imageUrl + '" alt="' + title + '" loading="lazy">'
-            : '<div class="recipe-placeholder">' + escapeHtml((recipe.title || "R").charAt(0).toUpperCase()) + "</div>";
+        var visual = renderRecipeImage(recipe, "recipe-image", recipe.title || "Recipe");
 
         return [
             '<article class="recipe-card" data-id="' + escapeHtml(recipe.id) + '" data-tone="' + escapeHtml(tone) + '">',
@@ -1018,22 +1440,56 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function renderPagination(total) {
-        var totalPages = Math.ceil(total / PAGE_SIZE);
+        var pageSize = getPageSize();
+        var totalPages = Math.ceil(total / pageSize);
+        var currentPage = Math.min(state.page, Math.max(totalPages - 1, 0));
+        var startItem = total > 0 ? currentPage * pageSize + 1 : 0;
+        var endItem = total > 0 ? Math.min(startItem + pageSize - 1, total) : 0;
+
+        if (paginationSummary) {
+            paginationSummary.textContent = total
+                ? "Page " + (currentPage + 1) + " of " + Math.max(totalPages, 1) + " | Showing " + startItem + "-" + endItem + " of " + total
+                : "No recipes found";
+        }
+
         if (totalPages <= 1) {
             searchPagination.innerHTML = "";
             return;
         }
 
         var buttons = [];
-        for (var i = 0; i < totalPages; i += 1) {
+        var addButton = function (page, label, disabled, active) {
             buttons.push(
                 '<button type="button" class="page-btn' +
-                    (i === state.page ? " active" : "") +
-                    '" onclick="goToPage(' + i + ')">' +
-                    (i + 1) +
+                    (active ? " active" : "") +
+                    '" onclick="goToPage(' + page + ')"' +
+                    (disabled ? " disabled" : "") +
+                    '>' +
+                    label +
                     "</button>"
             );
+        };
+
+        addButton(0, "First", currentPage === 0, false);
+        addButton(Math.max(currentPage - 1, 0), "Prev", currentPage === 0, false);
+
+        var startPage = Math.max(0, currentPage - 2);
+        var endPage = Math.min(totalPages - 1, currentPage + 2);
+
+        if (startPage > 0) {
+            buttons.push('<span class="page-ellipsis">...</span>');
         }
+
+        for (var i = startPage; i <= endPage; i += 1) {
+            addButton(i, String(i + 1), false, i === currentPage);
+        }
+
+        if (endPage < totalPages - 1) {
+            buttons.push('<span class="page-ellipsis">...</span>');
+        }
+
+        addButton(Math.min(currentPage + 1, totalPages - 1), "Next", currentPage >= totalPages - 1, false);
+        addButton(totalPages - 1, "Last", currentPage >= totalPages - 1, false);
         searchPagination.innerHTML = buttons.join("");
     }
 
@@ -1049,7 +1505,8 @@ document.addEventListener("DOMContentLoaded", function () {
             apiStatus.className = "status-badge online";
 
             if (catalogMode !== "live" && !liveCatalogLoading) {
-                await loadLiveCatalogFromApi(false);
+                await loadRemoteFilterOptions();
+                await doSearch();
             }
         } catch (error) {
             apiOnline = false;
@@ -1058,11 +1515,61 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    function doSearch() {
+    async function doSearch() {
         searchResults.innerHTML = '<div class="loading-state">Searching catalog...</div>';
         searchPagination.innerHTML = "";
 
-        var data = searchLocalCatalog(state.query || "*", state.category, state.difficulty, state.page, PAGE_SIZE);
+        var pageSize = getPageSize();
+        setPageSize(pageSize);
+
+        if (apiOnline) {
+            try {
+                var data = await fetchSearchResultsFromApi(
+                    state.query || "*",
+                    state.category,
+                    state.difficulty,
+                    state.page,
+                    pageSize
+                );
+                var total = Number(data.total || 0);
+                var totalPages = Math.ceil(total / pageSize);
+
+                if (state.page > Math.max(totalPages - 1, 0)) {
+                    state.page = Math.max(totalPages - 1, 0);
+                    data = await fetchSearchResultsFromApi(
+                        state.query || "*",
+                        state.category,
+                        state.difficulty,
+                        state.page,
+                        pageSize
+                    );
+                    total = Number(data.total || 0);
+                }
+
+                var results = (Array.isArray(data.results) ? data.results : []).map(function (recipe, index) {
+                    return buildRecipe(recipe, index);
+                });
+                results.forEach(storeRecipe);
+                renderRecipeGrid(searchResults, results);
+                setCatalogMode("live");
+                renderPagination(total);
+                updateCatalogCount(total);
+                setStatusMessage("Showing " + total + " recipes from live catalog", "success");
+                return;
+            } catch (error) {
+                console.warn("Live search fallback:", error);
+                apiOnline = false;
+                apiStatus.textContent = "Offline";
+                apiStatus.className = "status-badge offline";
+            }
+        }
+
+        var data = searchLocalCatalog(state.query || "*", state.category, state.difficulty, state.page, pageSize);
+        var totalPages = Math.ceil((data.total || 0) / pageSize);
+        if (state.page > Math.max(totalPages - 1, 0)) {
+            state.page = Math.max(totalPages - 1, 0);
+            data = searchLocalCatalog(state.query || "*", state.category, state.difficulty, state.page, pageSize);
+        }
         renderRecipeGrid(searchResults, data.results || []);
         renderPagination(data.total || 0);
         updateCatalogCount(data.total || 0);
@@ -1072,8 +1579,27 @@ document.addEventListener("DOMContentLoaded", function () {
         );
     }
 
-    function loadRanking() {
+    async function loadRanking() {
         rankingResults.innerHTML = '<div class="loading-state">Loading ranking...</div>';
+
+        if (apiOnline) {
+            try {
+                var response = await fetch(API_BASE + "/recipes/ranking/month?limit=10");
+                if (!response.ok) {
+                    throw new Error("ranking failed");
+                }
+                var data = await response.json();
+                var liveRecipes = Array.isArray(data.results) ? data.results : [];
+                if (liveRecipes.length) {
+                    liveRecipes.forEach(storeRecipe);
+                    renderRecipeGrid(rankingResults, liveRecipes, { rankOffset: 0 });
+                    return;
+                }
+            } catch (error) {
+                console.warn("Ranking sync fallback:", error);
+            }
+        }
+
         var recipes = rankingLocalCatalog(10);
         if (!recipes.length) {
             rankingResults.innerHTML = '<div class="empty-state">No ranking data yet.</div>';
@@ -1235,7 +1761,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     "Updated " + data.stored + " recipes from " + (data.sources && data.sources.length ? data.sources.join(", ") : "demo"),
                     data.fallback_used ? "warning" : "success"
                 );
-                await loadLiveCatalogFromApi(true);
+                await loadRemoteFilterOptions();
+                state.page = 0;
+                await doSearch();
             } else {
                 loadDemoCatalog();
                 loadFilterOptions();
@@ -1275,7 +1803,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function goToPage(page) {
-        state.page = page;
+        state.page = Math.max(Number(page) || 0, 0);
         doSearch();
         window.scrollTo({ top: searchResults.offsetTop - 40, behavior: "smooth" });
     }
@@ -1298,11 +1826,43 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
+    if (pageSizeSelect) {
+        pageSizeSelect.addEventListener("change", function () {
+            setPageSize(pageSizeSelect.value);
+            state.page = 0;
+            doSearch();
+        });
+    }
+
     [filterCategory, filterDifficulty].forEach(function (select) {
         select.addEventListener("change", function () {
             runSearchFromInputs();
         });
     });
+
+    if (authBtn) {
+        authBtn.addEventListener("click", function () {
+            openAuthModal("login");
+        });
+    }
+
+    if (logoutBtn) {
+        logoutBtn.addEventListener("click", logoutUser);
+    }
+
+    authTabButtons.forEach(function (button) {
+        button.addEventListener("click", function () {
+            setAuthModalMode(button.dataset.authTab);
+        });
+    });
+
+    if (loginForm) {
+        loginForm.addEventListener("submit", submitLoginForm);
+    }
+
+    if (registerForm) {
+        registerForm.addEventListener("submit", submitRegisterForm);
+    }
 
     recommendBtn.addEventListener("click", function () {
         var recipeId = recipeIdInput.value.trim();
@@ -1319,6 +1879,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
     refreshBtn.addEventListener("click", refreshCatalog);
 
+    if (authModal) {
+        authModal.addEventListener("click", function (event) {
+            if (event.target && event.target.dataset && event.target.dataset.closeAuth === "true") {
+                closeAuthModal();
+            }
+        });
+    }
+
+    if (authModalClose) {
+        authModalClose.addEventListener("click", closeAuthModal);
+    }
+
     if (recipeModal) {
         recipeModal.addEventListener("click", function (event) {
             if (event.target && event.target.dataset && event.target.dataset.closeModal === "true") {
@@ -1334,12 +1906,17 @@ document.addEventListener("DOMContentLoaded", function () {
     document.addEventListener("keydown", function (event) {
         if (event.key === "Escape") {
             closeRecipeModal();
+            closeAuthModal();
         }
     });
 
+    loadStoredPreferences();
+    loadStoredAuth();
+    renderAuthState();
     loadDemoCatalog();
     loadFilterOptions();
     doSearch();
+    restoreAuthSession();
     checkHealth();
     setInterval(checkHealth, 30000);
 });

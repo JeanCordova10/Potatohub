@@ -114,6 +114,22 @@ async def refresh():
     )
 
 
+<<<<<<< HEAD
+=======
+@router.get("/filters")
+async def filters():
+    col = get_recipes()
+    categories = sorted([item for item in await col.distinct("category_potato") if item])
+    difficulties = sorted([item for item in await col.distinct("difficulty") if item])
+    sources = sorted([item for item in await col.distinct("source") if item])
+    return {
+        "categories": categories,
+        "difficulties": difficulties,
+        "sources": sources,
+    }
+
+
+>>>>>>> aa8affc (Add Mongo and Neo4j user support)
 @router.get("/search", response_model=SearchResponse)
 async def search(
     q: str = "*",
