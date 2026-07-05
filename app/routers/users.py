@@ -4,6 +4,7 @@ from app import database
 from app.auth_context import require_current_user
 from app.database import doc_to_recipe
 from app.models import Recipe, UserRecommendationsResponse
+from app.semantic_search import canonicalize_category, canonicalize_difficulty
 
 
 router = APIRouter()
@@ -49,13 +50,15 @@ async def my_recommendations(
     seen_ids = [state["recipe_id"] for state in states]
     preferred_categories = user.get("preferences", {}).get("preferred_categories") or user.get("profile", {}).get("preferred_categories") or []
     difficulty = user.get("preferences", {}).get("difficulty") or user.get("profile", {}).get("favorite_difficulty") or ""
+    preferred_categories = [canonicalize_category(item) for item in preferred_categories if str(item).strip()]
+    difficulty = canonicalize_difficulty(difficulty) if difficulty else ""
 
     query = {"_id": {"$nin": seen_ids}}
     clauses = []
     if preferred_categories:
-        clauses.append({"category_potato": {"$in": preferred_categories}})
+        clauses.append({"category_canonical": {"$in": preferred_categories}})
     if difficulty:
-        clauses.append({"difficulty": difficulty})
+        clauses.append({"difficulty_canonical": difficulty})
     if clauses:
         query["$or"] = clauses
 

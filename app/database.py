@@ -4,9 +4,16 @@ import os
 from datetime import datetime, timezone
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorDatabase
-from pymongo import TEXT, ASCENDING, DESCENDING
+from pymongo import TEXT, ASCENDING, DESCENDING, UpdateOne
 
 from app.security import hash_password, normalize_email
+from app.semantic_search import (
+    SEMANTIC_VERSION,
+    build_recipe_search_fields,
+    canonicalize_category,
+    canonicalize_difficulty,
+    clean_human_text,
+)
 
 _client: AsyncIOMotorClient | None = None
 
@@ -67,6 +74,11 @@ async def ensure_indexes() -> None:
     await _ensure_index(get_recipes(), [("category_potato", ASCENDING)])
     await _ensure_index(get_recipes(), [("difficulty", ASCENDING)])
     await _ensure_index(get_recipes(), [("source", ASCENDING)])
+    await _ensure_index(get_recipes(), [("category_canonical", ASCENDING)])
+    await _ensure_index(get_recipes(), [("difficulty_canonical", ASCENDING)])
+    await _ensure_index(get_recipes(), [("search_terms", ASCENDING)])
+    await _ensure_index(get_recipes(), [("title_terms", ASCENDING)])
+    await _ensure_index(get_recipes(), [("ingredient_terms", ASCENDING)])
     await _ensure_index(
         get_recipes(),
         [("stats.views", DESCENDING), ("stats.saved", DESCENDING), ("stats.cooked", DESCENDING)],
@@ -94,7 +106,7 @@ async def ensure_demo_user() -> dict:
         email=email,
         password_hash=hash_password("potato123"),
         source="demo_auth",
-        preferred_categories=["GENERAL", "FRITA", "PURE"],
+        preferred_categories=["general", "plato principal", "desayuno"],
         favorite_difficulty="easy",
         experience_level="intermediate",
         household_size=2,
@@ -140,7 +152,8 @@ def build_user_document(
     city: str = "Lima",
 ) -> dict:
     normalized_email = normalize_email(email)
-    categories = [str(item).strip().upper() for item in (preferred_categories or []) if str(item).strip()]
+    categories = [canonicalize_category(item) for item in (preferred_categories or []) if str(item).strip()]
+    favorite_difficulty = canonicalize_difficulty(favorite_difficulty)
     now = datetime.now(timezone.utc)
     return {
         "_id": normalized_email,
@@ -222,6 +235,38 @@ async def init_indexes() -> None:
     await col.create_index([("difficulty", ASCENDING)])
 
 
+async def backfill_recipe_search_fields(batch_size: int = 250) -> int:
+    collection = get_recipes()
+    cursor = collection.find(
+        {
+            "$or": [
+                {"search_semantic_version": {"$exists": False}},
+                {"search_semantic_version": {"$ne": SEMANTIC_VERSION}},
+                {"search_terms": {"$exists": False}},
+                {"category_canonical": {"$exists": False}},
+                {"difficulty_canonical": {"$exists": False}},
+            ]
+        }
+    )
+
+    operations: list[UpdateOne] = []
+    updated = 0
+    async for doc in cursor:
+        payload = build_recipe_search_fields(doc)
+        payload["search_semantic_version"] = SEMANTIC_VERSION
+        payload["search_normalized_at"] = datetime.now(timezone.utc)
+        operations.append(UpdateOne({"_id": doc["_id"]}, {"$set": payload}))
+        if len(operations) >= batch_size:
+            result = await collection.bulk_write(operations, ordered=False)
+            updated += int(result.modified_count or 0) + int(result.upserted_count or 0)
+            operations = []
+
+    if operations:
+        result = await collection.bulk_write(operations, ordered=False)
+        updated += int(result.modified_count or 0) + int(result.upserted_count or 0)
+    return updated
+
+
 def doc_to_recipe(doc: dict) -> dict:
     stats = doc.get("stats") or {"views": 0, "saved": 0, "cooked": 0}
     views = int(stats.get("views") or 0)
@@ -229,19 +274,25 @@ def doc_to_recipe(doc: dict) -> dict:
     cooked = int(stats.get("cooked") or 0)
     prep = int(doc.get("prep_time_min") or 0)
     cook = int(doc.get("cook_time_min") or 0)
+    title = clean_human_text(doc.get("title") or "")
+    description = clean_human_text(doc.get("description") or "")
+    ingredients = [clean_human_text(item) for item in doc.get("ingredients") or [] if clean_human_text(item)]
+    instructions = [clean_human_text(item) for item in doc.get("instructions") or [] if clean_human_text(item)]
+    category = clean_human_text(doc.get("category_canonical") or doc.get("category_potato") or doc.get("category") or "general")
+    difficulty = clean_human_text(doc.get("difficulty_canonical") or doc.get("difficulty") or "")
     return {
         "id": str(doc["_id"]),
-        "title": doc.get("title") or "",
-        "description": doc.get("description") or "",
-        "category": doc.get("category_potato") or "GENERAL",
-        "difficulty": doc.get("difficulty") or "",
+        "title": title,
+        "description": description,
+        "category": category or "general",
+        "difficulty": difficulty,
         "cooking_time": prep + cook,
-        "ingredients": doc.get("ingredients") or [],
-        "instructions": doc.get("instructions") or [],
+        "ingredients": ingredients,
+        "instructions": instructions,
         "image_url": doc.get("image_url"),
         "source_name": doc.get("source") or "cookpad_pe",
         "source_url": doc.get("source_url") or "",
-        "tags": doc.get("tags") or [],
+        "tags": [clean_human_text(item) for item in doc.get("tags") or [] if clean_human_text(item)],
         "stats": {"views": views, "saved": saved, "cooked": cooked},
         "score": compute_recipe_score(stats),
         "created_at": doc.get("created_at") or doc.get("scraped_at"),

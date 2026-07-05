@@ -220,6 +220,390 @@ document.addEventListener("DOMContentLoaded", function () {
             .filter(Boolean);
     }
 
+    function canonicalizeSemanticToken(token) {
+        var aliases = {
+            appetizer: "entrada",
+            avocado: "palta",
+            bean: "frijol",
+            beans: "frijol",
+            beef: "res",
+            bread: "pan",
+            breakfast: "desayuno",
+            broccoli: "brocoli",
+            bun: "pan",
+            buns: "pan",
+            butter: "mantequilla",
+            carrot: "zanahoria",
+            carrots: "zanahoria",
+            cebollas: "cebolla",
+            cheese: "queso",
+            chicken: "pollo",
+            chili: "aji",
+            chilli: "aji",
+            chile: "aji",
+            corn: "maiz",
+            dessert: "postre",
+            dinner: "cena",
+            eggs: "huevo",
+            egg: "huevo",
+            fish: "pescado",
+            garlic: "ajo",
+            lunch: "almuerzo",
+            main: "principal",
+            meat: "carne",
+            milk: "leche",
+            mushroom: "hongo",
+            mushrooms: "hongo",
+            onion: "cebolla",
+            onions: "cebolla",
+            papas: "papa",
+            patata: "papa",
+            patatas: "papa",
+            pepper: "pimiento",
+            peppers: "pimiento",
+            pork: "cerdo",
+            potato: "papa",
+            potatoes: "papa",
+            prawn: "camaron",
+            prawns: "camaron",
+            recipe: "receta",
+            recipes: "receta",
+            salad: "ensalada",
+            scallion: "cebolla",
+            scallions: "cebolla",
+            shallot: "cebolla",
+            shallots: "cebolla",
+            shrimp: "camaron",
+            snack: "merienda",
+            soup: "sopa",
+            spud: "papa",
+            spuds: "papa",
+            tomato: "tomate",
+            tomatoes: "tomate",
+            tuna: "atun",
+            vegetable: "verdura",
+            vegetables: "verdura"
+        };
+        token = normalizeTextValue(token || "");
+        return aliases[token] || token;
+    }
+
+    function canonicalizeCategoryValue(value) {
+        var normalized = normalizeTextValue(value || "");
+        var aliases = {
+            appetizer: "entrada",
+            breakfast: "desayuno",
+            dessert: "postre",
+            dinner: "cena",
+            general: "general",
+            lunch: "almuerzo",
+            merienda: "merienda",
+            "main dish": "plato principal",
+            "main course": "plato principal",
+            potato: "papa",
+            salad: "ensalada",
+            snack: "merienda",
+            soup: "sopa"
+        };
+        return aliases[normalized] || canonicalizeSemanticToken(normalized) || normalized;
+    }
+
+    function canonicalizeDifficultyValue(value) {
+        var normalized = normalizeTextValue(value || "");
+        var aliases = {
+            easy: "facil",
+            medium: "media",
+            hard: "dificil",
+            beginner: "facil",
+            intermediate: "media",
+            advanced: "dificil"
+        };
+        return aliases[normalized] || normalized;
+    }
+
+    function uniqueTokens(tokens, limit) {
+        var seen = {};
+        var results = [];
+        for (var i = 0; i < tokens.length; i += 1) {
+            var token = tokens[i];
+            if (!token || seen[token]) {
+                continue;
+            }
+            seen[token] = true;
+            results.push(token);
+            if (limit && results.length >= limit) {
+                break;
+            }
+        }
+        return results;
+    }
+
+    function normalizeRecommendationMode(mode) {
+        mode = normalizeTextValue(mode || "hybrid");
+        if (mode === "type") {
+            return "category";
+        }
+        if (mode !== "hybrid" && mode !== "ingredients" && mode !== "category" && mode !== "title") {
+            return "hybrid";
+        }
+        return mode;
+    }
+
+    function isUsefulRecipeToken(token) {
+        var blocked = {
+            a: true,
+            al: true,
+            and: true,
+            baby: true,
+            best: true,
+            bite: true,
+            bites: true,
+            chopped: true,
+            con: true,
+            cup: true,
+            cups: true,
+            de: true,
+            del: true,
+            diced: true,
+            dish: true,
+            easy: true,
+            el: true,
+            en: true,
+            for: true,
+            fresh: true,
+            freshly: true,
+            fries: true,
+            fry: true,
+            gram: true,
+            grams: true,
+            homemade: true,
+            kg: true,
+            la: true,
+            las: true,
+            lb: true,
+            los: true,
+            medium: true,
+            minced: true,
+            ml: true,
+            of: true,
+            oil: true,
+            optional: true,
+            ounce: true,
+            ounces: true,
+            oz: true,
+            papa: true,
+            papas: true,
+            para: true,
+            peeled: true,
+            pinch: true,
+            por: true,
+            potato: true,
+            potatoes: true,
+            pound: true,
+            powder: true,
+            quartered: true,
+            recipe: true,
+            recipes: true,
+            shakes: true,
+            simple: true,
+            sin: true,
+            sliced: true,
+            small: true,
+            spud: true,
+            spuds: true,
+            style: true,
+            taste: true,
+            tbsp: true,
+            teaspoon: true,
+            teaspoons: true,
+            the: true,
+            to: true,
+            tsp: true,
+            una: true,
+            uno: true,
+            unos: true,
+            unas: true,
+            whole: true,
+            with: true,
+            y: true,
+        };
+        return !!token && token.length > 2 && !blocked[token] && !/^\d+$/.test(token);
+    }
+
+    function buildIngredientTokenSet(recipe) {
+        return new Set(
+            uniqueTokens(
+                tokenizeText((recipe.ingredients || []).join(" "))
+                    .map(canonicalizeSemanticToken)
+                    .filter(isUsefulRecipeToken),
+                36
+            )
+        );
+    }
+
+    function buildTitleTokenSet(recipe) {
+        return new Set(
+            uniqueTokens(
+                tokenizeText(recipe.title || "")
+                    .map(canonicalizeSemanticToken)
+                    .filter(isUsefulRecipeToken),
+                12
+            )
+        );
+    }
+
+    function isSearchToken(token) {
+        var blocked = {
+            a: true,
+            al: true,
+            and: true,
+            con: true,
+            de: true,
+            del: true,
+            el: true,
+            en: true,
+            for: true,
+            la: true,
+            las: true,
+            los: true,
+            of: true,
+            para: true,
+            por: true,
+            sin: true,
+            the: true,
+            to: true,
+            una: true,
+            uno: true,
+            unos: true,
+            unas: true,
+            with: true,
+            y: true,
+        };
+        return !!token && token.length > 2 && !blocked[token] && !/^\d+$/.test(token);
+    }
+
+    function expandSearchTokens(tokens) {
+        var expanded = {};
+        for (var i = 0; i < tokens.length; i += 1) {
+            var token = canonicalizeSemanticToken(tokens[i]);
+            if (!token) {
+                continue;
+            }
+            expanded[token] = true;
+            if (token.length > 4 && /es$/.test(token)) {
+                expanded[token.slice(0, -2)] = true;
+            } else if (token.length > 3 && /s$/.test(token)) {
+                expanded[token.slice(0, -1)] = true;
+            } else {
+                expanded[token + "s"] = true;
+            }
+        }
+        return expanded;
+    }
+
+    function buildQuerySignals(query) {
+        var normalizedQuery = normalizeTextValue(query || "");
+        var tokens = tokenizeText(query || "").filter(isSearchToken);
+        return {
+            rawQuery: String(query || "").trim(),
+            normalizedQuery: normalizedQuery,
+            queryTerms: expandSearchTokens(tokens),
+        };
+    }
+
+    function buildRecipeDiscoverySignals(recipe) {
+        return {
+            normalizedTitle: normalizeTextValue(recipe.title || ""),
+            titleTerms: expandSearchTokens(tokenizeText(recipe.title || "").map(canonicalizeSemanticToken).filter(isSearchToken)),
+            normalizedIngredients: normalizeTextValue((recipe.ingredients || []).join(" ")),
+            ingredientTerms: expandSearchTokens(tokenizeText((recipe.ingredients || []).join(" ")).map(canonicalizeSemanticToken).filter(isSearchToken)),
+            normalizedCategory: canonicalizeCategoryValue(recipe.category || ""),
+            categoryTerms: expandSearchTokens(tokenizeText(canonicalizeCategoryValue(recipe.category || "")).filter(isSearchToken)),
+        };
+    }
+
+    function countSharedTerms(queryTerms, candidateTerms) {
+        var total = 0;
+        var seen = {};
+        for (var term in queryTerms) {
+            if (!Object.prototype.hasOwnProperty.call(queryTerms, term) || !queryTerms[term]) {
+                continue;
+            }
+            if (candidateTerms[term] && !seen[term]) {
+                total += 1;
+                seen[term] = true;
+            }
+        }
+        return total;
+    }
+
+    function scoreRecipeForQuery(query, recipe, mode) {
+        var querySignals = buildQuerySignals(query);
+        var recipeSignals = buildRecipeDiscoverySignals(recipe);
+        var titleHits = countSharedTerms(querySignals.queryTerms, recipeSignals.titleTerms);
+        var ingredientHits = countSharedTerms(querySignals.queryTerms, recipeSignals.ingredientTerms);
+        var categoryHits = countSharedTerms(querySignals.queryTerms, recipeSignals.categoryTerms);
+        var exactTitle = !!querySignals.normalizedQuery && recipeSignals.normalizedTitle.indexOf(querySignals.normalizedQuery) !== -1;
+        var exactIngredients = !!querySignals.normalizedQuery && recipeSignals.normalizedIngredients.indexOf(querySignals.normalizedQuery) !== -1;
+        var exactCategory = !!querySignals.normalizedQuery && recipeSignals.normalizedCategory.indexOf(querySignals.normalizedQuery) !== -1;
+        var matched = false;
+        var score = 0;
+
+        if (mode === "ingredients") {
+            score = (ingredientHits * 3) + (exactIngredients ? 4 : 0) + (titleHits * 0.55) + (categoryHits * 0.9);
+            matched = ingredientHits > 0 || exactIngredients;
+        } else if (mode === "category") {
+            score = (categoryHits * 4.5) + (exactCategory ? 4 : 0) + (titleHits * 1) + (ingredientHits * 1);
+            matched = categoryHits > 0 || exactCategory;
+        } else if (mode === "title") {
+            score = (titleHits * 3.5) + (exactTitle ? 4 : 0) + (ingredientHits * 0.5) + (categoryHits * 0.75);
+            matched = titleHits > 0 || exactTitle;
+        } else {
+            score = (titleHits * 2) + (ingredientHits * 2.2) + (categoryHits * 2.8) +
+                (exactTitle ? 3 : 0) + (exactIngredients ? 2.5 : 0) + (exactCategory ? 2 : 0);
+            matched = titleHits > 0 || ingredientHits > 0 || categoryHits > 0 || exactTitle || exactIngredients || exactCategory;
+        }
+
+        score += Number(recipe.score || 0) * 0.06;
+        return {
+            matched: matched,
+            score: score,
+            sharedTitleTerms: titleHits,
+            sharedIngredients: ingredientHits,
+            sameCategory: categoryHits > 0 || exactCategory,
+        };
+    }
+
+    function discoverLocalRecommendations(query, limit, mode) {
+        limit = Math.max(Number(limit) || 6, 1);
+        mode = normalizeRecommendationMode(mode);
+        var normalizedQuery = String(query || "").trim();
+        if (!normalizedQuery) {
+            return [];
+        }
+
+        var scored = [];
+        for (var i = 0; i < catalogRecipes.length; i += 1) {
+            var recipe = catalogRecipes[i];
+            var result = scoreRecipeForQuery(normalizedQuery, recipe, mode);
+            if (!result.matched || result.score <= 0) {
+                continue;
+            }
+            scored.push({ score: result.score, recipe: recipe });
+        }
+
+        scored.sort(function (a, b) {
+            if (b.score !== a.score) {
+                return b.score - a.score;
+            }
+            return String(a.recipe.title || "").localeCompare(String(b.recipe.title || ""));
+        });
+
+        return scored.slice(0, limit).map(function (item) {
+            return item.recipe;
+        });
+    }
+
     function computeLocalRelevance(recipe, query, tokens) {
         if (!query || query === "*") {
             return Number(recipe.score || 0);
@@ -257,8 +641,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function searchLocalCatalog(query, category, difficulty, page, size) {
         query = query == null ? "*" : String(query);
-        category = normalizeTextValue(category);
-        difficulty = normalizeTextValue(difficulty);
+        category = canonicalizeCategoryValue(category);
+        difficulty = canonicalizeDifficultyValue(difficulty);
         page = Math.max(Number(page) || 0, 0);
         size = Math.max(Number(size) || DEFAULT_PAGE_SIZE, 1);
 
@@ -267,10 +651,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
         for (var i = 0; i < catalogRecipes.length; i += 1) {
             var recipe = catalogRecipes[i];
-            if (category && normalizeTextValue(recipe.category) !== category) {
+            if (category && canonicalizeCategoryValue(recipe.category) !== category) {
                 continue;
             }
-            if (difficulty && normalizeTextValue(recipe.difficulty) !== difficulty) {
+            if (difficulty && canonicalizeDifficultyValue(recipe.difficulty) !== difficulty) {
                 continue;
             }
 
@@ -338,16 +722,13 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         limit = Math.max(Number(limit) || 6, 1);
-        mode = normalizeTextValue(mode || "hybrid");
-        if (mode !== "hybrid" && mode !== "ingredients" && mode !== "type") {
-            mode = "hybrid";
-        }
+        mode = normalizeRecommendationMode(mode);
 
-        var anchorIngredients = new Set(tokenizeText((anchor.ingredients || []).join(" ")));
+        var anchorIngredients = buildIngredientTokenSet(anchor);
         var anchorTags = new Set(tokenizeText((anchor.tags || []).join(" ")));
-        var anchorTitle = new Set(tokenizeText(anchor.title));
-        var anchorCategory = normalizeTextValue(anchor.category);
-        var anchorDifficulty = normalizeTextValue(anchor.difficulty);
+        var anchorTitle = buildTitleTokenSet(anchor);
+        var anchorCategory = canonicalizeCategoryValue(anchor.category);
+        var anchorDifficulty = canonicalizeDifficultyValue(anchor.difficulty);
         var scored = [];
 
         for (var i = 0; i < catalogRecipes.length; i += 1) {
@@ -356,9 +737,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 continue;
             }
 
-            var candidateIngredients = new Set(tokenizeText((candidate.ingredients || []).join(" ")));
+            var candidateIngredients = buildIngredientTokenSet(candidate);
             var candidateTags = new Set(tokenizeText((candidate.tags || []).join(" ")));
-            var candidateTitle = new Set(tokenizeText(candidate.title));
+            var candidateTitle = buildTitleTokenSet(candidate);
             var sharedIngredients = 0;
             anchorIngredients.forEach(function (item) {
                 if (candidateIngredients.has(item)) {
@@ -377,25 +758,46 @@ document.addEventListener("DOMContentLoaded", function () {
                     sharedTitle += 1;
                 }
             });
-            var sameCategory = anchorCategory && normalizeTextValue(candidate.category) === anchorCategory;
-            var sameDifficulty = anchorDifficulty && normalizeTextValue(candidate.difficulty) === anchorDifficulty;
+            var sameCategory = anchorCategory && canonicalizeCategoryValue(candidate.category) === anchorCategory;
+            var sameDifficulty = anchorDifficulty && canonicalizeDifficultyValue(candidate.difficulty) === anchorDifficulty;
+
+            if (mode === "ingredients" && sharedIngredients <= 0) {
+                continue;
+            }
+            if (mode === "category" && !sameCategory) {
+                continue;
+            }
+            if (mode === "title" && sharedTitle <= 0) {
+                continue;
+            }
+            if (mode === "hybrid" && sharedIngredients <= 0 && sharedTitle <= 0 && !sameCategory) {
+                continue;
+            }
 
             var score = 0;
             if (mode === "ingredients") {
                 score += sharedIngredients * 3;
                 score += sharedTags * 0.75;
-                score += sameCategory ? 1 : 0;
+                score += sharedTitle * 0.55;
+                score += sameCategory ? 0.9 : 0;
                 score += sameDifficulty ? 0.2 : 0;
-            } else if (mode === "type") {
-                score += sameCategory ? 4 : 0;
-                score += sharedIngredients * 1.25;
+            } else if (mode === "category") {
+                score += sameCategory ? 4.5 : 0;
+                score += sharedIngredients * 1.2;
                 score += sharedTags * 0.75;
-                score += sameDifficulty ? 0.5 : 0;
+                score += sharedTitle * 1;
+                score += sameDifficulty ? 0.4 : 0;
+            } else if (mode === "title") {
+                score += sharedTitle * 3.5;
+                score += sharedIngredients * 1;
+                score += sharedTags * 0.5;
+                score += sameCategory ? 1.5 : 0;
+                score += sameDifficulty ? 0.2 : 0;
             } else {
-                score += sharedIngredients * 2;
+                score += sharedIngredients * 2.2;
                 score += sharedTags * 1;
-                score += sharedTitle * 0.5;
-                score += sameCategory ? 3 : 0;
+                score += sharedTitle * 1.8;
+                score += sameCategory ? 2.8 : 0;
                 score += sameDifficulty ? 0.4 : 0;
             }
 
@@ -422,8 +824,8 @@ document.addEventListener("DOMContentLoaded", function () {
         var sourceCounts = {};
 
         recipes.forEach(function (recipe) {
-            var category = String(recipe.category || "").trim();
-            var difficulty = String(recipe.difficulty || "").trim();
+            var category = canonicalizeCategoryValue(String(recipe.category || "").trim());
+            var difficulty = canonicalizeDifficultyValue(String(recipe.difficulty || "").trim());
             var source = String(recipe.source_name || "").trim();
 
             if (category) {
@@ -1805,19 +2207,22 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     async function getRecommendations(recipeId) {
-        recipeIdInput.value = recipeId;
+        var inputValue = String(recipeId == null ? "" : recipeId).trim();
+        recipeIdInput.value = inputValue;
         recommendResults.innerHTML = '<div class="loading-state">Loading recommendations...</div>';
-        var mode = recommendationMode ? recommendationMode.value || "hybrid" : "hybrid";
-        var localRecipes = recommendLocalCatalog(recipeId, 6, mode);
+        var mode = normalizeRecommendationMode(recommendationMode ? recommendationMode.value || "hybrid" : "hybrid");
+        var anchorRecipe = getRecipeById(inputValue);
+        var localRecipes = anchorRecipe ? recommendLocalCatalog(anchorRecipe.id, 6, mode) : discoverLocalRecommendations(inputValue, 6, mode);
 
         if (apiOnline) {
             try {
                 var params = new URLSearchParams();
                 params.set("limit", "6");
                 params.set("mode", mode);
+                params.set("q", inputValue);
 
                 var response = await fetch(
-                    API_BASE + "/recipes/" + encodeURIComponent(recipeId) + "/recommendations?" + params.toString(),
+                    API_BASE + "/recipes/recommendations/discover?" + params.toString(),
                     {
                         headers: authHeaders(),
                     }
@@ -1831,9 +2236,13 @@ document.addEventListener("DOMContentLoaded", function () {
                     recipes = localRecipes;
                 }
                 if (!recipes.length) {
-                    recommendResults.innerHTML = '<div class="empty-state">No similar recipes found.</div>';
+                    recommendResults.innerHTML = '<div class="empty-state">No recipes matched that recommendation search.</div>';
+                    setStatusMessage("No encontramos coincidencias para: " + inputValue, "warning");
                 } else {
                     renderRecipeGrid(recommendResults, recipes);
+                    if (inputValue) {
+                        setStatusMessage("Recommendations based on: " + inputValue, "success");
+                    }
                 }
                 closeRecipeModal();
                 setActiveTab("recomendaciones");
@@ -1844,9 +2253,13 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         if (!localRecipes.length) {
-            recommendResults.innerHTML = '<div class="empty-state">No similar recipes found.</div>';
+            recommendResults.innerHTML = '<div class="empty-state">No recipes matched that recommendation search.</div>';
+            setStatusMessage("No encontramos coincidencias para: " + inputValue, "warning");
         } else {
             renderRecipeGrid(recommendResults, localRecipes);
+            if (inputValue) {
+                setStatusMessage("Recommendations based on: " + inputValue + " (local)", "warning");
+            }
         }
         closeRecipeModal();
         setActiveTab("recomendaciones");

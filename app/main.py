@@ -40,6 +40,13 @@ async def _sync_graph_projection_safe(service: Neo4jService) -> None:
         return
 
 
+async def _normalize_recipe_catalog_safe() -> None:
+    try:
+        await database.backfill_recipe_search_fields()
+    except Exception:
+        return
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     database.init_client()
@@ -58,10 +65,16 @@ async def lifespan(app: FastAPI):
 
     app.state.neo4j_service = neo4j_service
     app.state.demo_user = user_to_public(demo_user)
+    normalization_task = asyncio.create_task(_normalize_recipe_catalog_safe())
+    app.state.catalog_normalization_task = normalization_task
     projection_task = asyncio.create_task(_sync_graph_projection_safe(neo4j_service))
     app.state.graph_projection_task = projection_task
     yield
 
+    if normalization_task and not normalization_task.done():
+        normalization_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await normalization_task
     if projection_task and not projection_task.done():
         projection_task.cancel()
         with suppress(asyncio.CancelledError):

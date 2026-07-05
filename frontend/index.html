@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PotatoHub</title>
-    <link rel="stylesheet" href="/static/style.css?v=20260629a">
-    <script defer src="/static/script.js?v=20260629a"></script>
+    <link rel="stylesheet" href="/static/style.css?v=20260706a">
+    <script defer src="/static/script.js?v=20260706a"></script>
 </head>
 <body>
     <div class="shell">
@@ -90,14 +90,15 @@
                 </div>
                 <div class="search-panel">
                     <div class="search-box">
-                        <input id="recipeIdInput" type="text" placeholder="Paste a recipe ID or leave empty for you">
+                        <input id="recipeIdInput" type="text" placeholder="Recipe ID or words like papa, causa, chuño">
                         <button id="recommendBtn" type="button">Recommend</button>
                     </div>
                     <div class="filters">
                         <select id="recommendationMode" aria-label="Recommendation mode">
                             <option value="hybrid">Hybrid</option>
                             <option value="ingredients">Ingredients</option>
-                            <option value="type">Recipe type</option>
+                            <option value="category">Category</option>
+                            <option value="title">Title words</option>
                         </select>
                     </div>
                 </div>

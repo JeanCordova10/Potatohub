@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from typing import Any, Iterable
 
@@ -7,6 +8,17 @@ try:
     from neo4j import AsyncGraphDatabase
 except Exception:  # pragma: no cover - optional dependency
     AsyncGraphDatabase = None
+
+from app.semantic_search import (
+    build_query_signals,
+    build_recipe_search_fields,
+    canonicalize_category,
+    canonicalize_difficulty,
+    clean_human_text,
+    extract_ingredient_terms,
+    extract_title_terms,
+    normalize_text,
+)
 
 
 class Neo4jService:
@@ -62,36 +74,64 @@ class Neo4jService:
         cypher = """
         MERGE (r:Recipe {id: $id})
         SET r.title = $title,
+            r.title_canonical = $title_canonical,
             r.description = $description,
             r.category = $category,
+            r.category_canonical = $category_key,
             r.difficulty = $difficulty,
+            r.difficulty_canonical = $difficulty_key,
             r.cooking_time = $cooking_time,
             r.score = $score,
             r.image_url = $image_url,
             r.source_name = $source_name,
             r.source_url = $source_url,
+            r.search_terms = $search_terms,
             r.updated_at = datetime($updated_at)
         SET r.created_at = coalesce(r.created_at, datetime($created_at))
-        WITH r, $category_key AS category_key, $difficulty_key AS difficulty_key, $ingredients AS ingredients
-        OPTIONAL MATCH (r)-[existing_category:IN_CATEGORY]->(:Category)
-        DELETE existing_category
-        WITH r, difficulty_key, ingredients, category_key
-        MERGE (category:Category {name: category_key})
-        MERGE (r)-[:IN_CATEGORY]->(category)
-        WITH r, difficulty_key, ingredients
-        OPTIONAL MATCH (r)-[existing_difficulty:HAS_DIFFICULTY]->(:Difficulty)
-        DELETE existing_difficulty
-        WITH r, ingredients, difficulty_key
-        MERGE (difficulty:Difficulty {name: difficulty_key})
-        MERGE (r)-[:HAS_DIFFICULTY]->(difficulty)
-        WITH r, ingredients
-        OPTIONAL MATCH (r)-[existing_use:USES]->(:Ingredient)
-        DELETE existing_use
-        WITH r, CASE WHEN size(ingredients) = 0 THEN [NULL] ELSE ingredients END AS ingredients
-        UNWIND ingredients AS ingredient
-        WITH r, ingredient WHERE ingredient IS NOT NULL
-        MERGE (i:Ingredient {name: ingredient})
-        MERGE (r)-[:USES]->(i)
+        WITH r,
+             $category_key AS category_key,
+             $difficulty_key AS difficulty_key,
+             $ingredients AS ingredients,
+             $title_terms AS title_terms
+        CALL {
+            WITH r, category_key
+            OPTIONAL MATCH (r)-[existing_category:IN_CATEGORY]->(:Category)
+            DELETE existing_category
+            MERGE (category:Category {name: category_key})
+            MERGE (r)-[:IN_CATEGORY]->(category)
+            RETURN count(*) AS category_links
+        }
+        CALL {
+            WITH r, difficulty_key
+            OPTIONAL MATCH (r)-[existing_difficulty:HAS_DIFFICULTY]->(:Difficulty)
+            DELETE existing_difficulty
+            MERGE (difficulty:Difficulty {name: difficulty_key})
+            MERGE (r)-[:HAS_DIFFICULTY]->(difficulty)
+            RETURN count(*) AS difficulty_links
+        }
+        CALL {
+            WITH r, ingredients
+            OPTIONAL MATCH (r)-[existing_use:USES]->(:Ingredient)
+            DELETE existing_use
+            WITH r, ingredients
+            WHERE size(ingredients) > 0
+            UNWIND ingredients AS ingredient
+            MERGE (i:Ingredient {name: ingredient})
+            MERGE (r)-[:USES]->(i)
+            RETURN count(*) AS ingredient_links
+        }
+        CALL {
+            WITH r, title_terms
+            OPTIONAL MATCH (r)-[existing_title:HAS_TITLE_TERM]->(:TitleTerm)
+            DELETE existing_title
+            WITH r, title_terms
+            WHERE size(title_terms) > 0
+            UNWIND title_terms AS title_term
+            MERGE (t:TitleTerm {name: title_term})
+            MERGE (r)-[:HAS_TITLE_TERM]->(t)
+            RETURN count(*) AS title_links
+        }
+        RETURN r
         """
 
         written = 0
@@ -229,37 +269,138 @@ class Neo4jService:
         OPTIONAL MATCH (anchor)-[:USES]->(ai:Ingredient)<-[:USES]-(candidate)
         OPTIONAL MATCH (anchor)-[:IN_CATEGORY]->(ac:Category)<-[:IN_CATEGORY]-(candidate)
         OPTIONAL MATCH (anchor)-[:HAS_DIFFICULTY]->(ad:Difficulty)<-[:HAS_DIFFICULTY]-(candidate)
+        OPTIONAL MATCH (anchor)-[:HAS_TITLE_TERM]->(at:TitleTerm)<-[:HAS_TITLE_TERM]-(candidate)
         WITH candidate,
              count(DISTINCT ai) AS shared_ingredients,
              count(DISTINCT ac) > 0 AS same_category,
              count(DISTINCT ad) > 0 AS same_difficulty,
+             count(DISTINCT at) AS shared_title_terms,
              coalesce(candidate.score, 0.0) AS candidate_score
         WITH candidate,
              shared_ingredients,
              same_category,
              same_difficulty,
+             shared_title_terms,
              candidate_score,
              CASE $mode
                  WHEN 'ingredients' THEN (shared_ingredients * 3.0) +
-                     CASE WHEN same_category THEN 1.0 ELSE 0.0 END +
+                     (shared_title_terms * 0.55) +
+                     CASE WHEN same_category THEN 0.9 ELSE 0.0 END +
                      CASE WHEN same_difficulty THEN 0.2 ELSE 0.0 END
-                 WHEN 'type' THEN CASE WHEN same_category THEN 4.0 ELSE 0.0 END +
+                 WHEN 'category' THEN CASE WHEN same_category THEN 4.5 ELSE 0.0 END +
+                     (shared_ingredients * 1.2) +
+                     (shared_title_terms * 1.0) +
+                     CASE WHEN same_difficulty THEN 0.4 ELSE 0.0 END
+                 WHEN 'title' THEN (shared_title_terms * 3.5) +
                      (shared_ingredients * 1.0) +
-                     CASE WHEN same_difficulty THEN 0.5 ELSE 0.0 END
-                 ELSE (shared_ingredients * 2.0) +
-                     CASE WHEN same_category THEN 3.0 ELSE 0.0 END +
+                     CASE WHEN same_category THEN 1.5 ELSE 0.0 END +
+                     CASE WHEN same_difficulty THEN 0.2 ELSE 0.0 END
+                 ELSE (shared_ingredients * 2.2) +
+                     (shared_title_terms * 1.8) +
+                     CASE WHEN same_category THEN 2.8 ELSE 0.0 END +
                      CASE WHEN same_difficulty THEN 0.4 ELSE 0.0 END
              END + candidate_score * 0.08 AS ranking
-        WHERE shared_ingredients > 0 OR same_category OR same_difficulty
+        WHERE CASE $mode
+            WHEN 'ingredients' THEN shared_ingredients > 0
+            WHEN 'category' THEN same_category
+            WHEN 'title' THEN shared_title_terms > 0
+            ELSE shared_ingredients > 0 OR same_category OR same_difficulty OR shared_title_terms > 0
+        END
         RETURN candidate.id AS id,
                ranking,
                shared_ingredients,
+               shared_title_terms,
                same_category,
                same_difficulty
         ORDER BY ranking DESC, candidate_score DESC, candidate.title ASC
         LIMIT $limit
         """
         return await self._ranked_rows(cypher, recipe_id=recipe_id, mode=mode, limit=max(int(limit), 1))
+
+    async def recommend_for_query(self, query: str, candidate_ids: list[str], limit: int = 6, mode: str = "hybrid"):
+        driver = await self.connect()
+        if driver is None or not candidate_ids:
+            return []
+
+        signals = build_query_signals(query)
+        query_terms = sorted(signals["query_terms"])
+        if not query_terms and not signals["normalized_query"]:
+            return []
+
+        mode = _normalize_mode(mode)
+        cypher = """
+        MATCH (candidate:Recipe)
+        WHERE candidate.id IN $candidate_ids
+        OPTIONAL MATCH (candidate)-[:USES]->(i:Ingredient)
+        WHERE i.name IN $query_terms
+        OPTIONAL MATCH (candidate)-[:HAS_TITLE_TERM]->(t:TitleTerm)
+        WHERE t.name IN $query_terms
+        OPTIONAL MATCH (candidate)-[:IN_CATEGORY]->(c:Category)
+        WHERE c.name = $category_canonical OR c.name IN $query_terms
+        OPTIONAL MATCH (candidate)-[:HAS_DIFFICULTY]->(d:Difficulty)
+        WHERE d.name = $difficulty_canonical
+        OPTIONAL MATCH (:User)-[rel:VIEWED|SAVED|COOKED]->(candidate)
+        WITH candidate,
+             count(DISTINCT i) AS ingredient_hits,
+             count(DISTINCT t) AS title_hits,
+             count(DISTINCT c) > 0 AS same_category,
+             count(DISTINCT d) > 0 AS same_difficulty,
+             sum(
+                 CASE type(rel)
+                     WHEN 'VIEWED' THEN 0.4 * coalesce(rel.count, 1)
+                     WHEN 'SAVED' THEN 1.8
+                     WHEN 'COOKED' THEN 2.6
+                     ELSE 0.0
+                 END
+             ) AS audience_signal,
+             coalesce(candidate.score, 0.0) AS candidate_score
+        WITH candidate,
+             ingredient_hits,
+             title_hits,
+             same_category,
+             same_difficulty,
+             coalesce(audience_signal, 0.0) AS audience_signal,
+             candidate_score,
+             CASE $mode
+                 WHEN 'ingredients' THEN (ingredient_hits * 3.2) +
+                     (title_hits * 0.65) +
+                     CASE WHEN same_category THEN 0.9 ELSE 0.0 END
+                 WHEN 'category' THEN CASE WHEN same_category THEN 4.8 ELSE 0.0 END +
+                     (ingredient_hits * 1.2) +
+                     (title_hits * 0.8) +
+                     CASE WHEN same_difficulty THEN 0.4 ELSE 0.0 END
+                 WHEN 'title' THEN (title_hits * 3.7) +
+                     (ingredient_hits * 0.9) +
+                     CASE WHEN same_category THEN 1.1 ELSE 0.0 END
+                 ELSE (ingredient_hits * 2.5) +
+                     (title_hits * 2.2) +
+                     CASE WHEN same_category THEN 2.8 ELSE 0.0 END +
+                     CASE WHEN same_difficulty THEN 0.45 ELSE 0.0 END
+             END + (audience_signal * 0.22) + (candidate_score * 0.08) AS ranking
+        WHERE CASE $mode
+            WHEN 'ingredients' THEN ingredient_hits > 0
+            WHEN 'category' THEN same_category
+            WHEN 'title' THEN title_hits > 0
+            ELSE ingredient_hits > 0 OR title_hits > 0 OR same_category OR same_difficulty
+        END
+        RETURN candidate.id AS id,
+               ranking,
+               ingredient_hits AS shared_ingredients,
+               title_hits AS shared_title_terms,
+               same_category,
+               same_difficulty
+        ORDER BY ranking DESC, candidate_score DESC, candidate.title ASC
+        LIMIT $limit
+        """
+        return await self._ranked_rows(
+            cypher,
+            candidate_ids=candidate_ids,
+            query_terms=query_terms,
+            category_canonical=signals["category_canonical"],
+            difficulty_canonical=signals["difficulty_canonical"],
+            mode=mode,
+            limit=max(int(limit), 1),
+        )
 
     async def recommend_from_anchor_audience(self, recipe_id: str, limit: int = 6):
         driver = await self.connect()
@@ -280,24 +421,42 @@ class Neo4jService:
             OPTIONAL MATCH (anchor)-[:IN_CATEGORY]->(ac:Category)<-[:IN_CATEGORY]-(candidate)
             RETURN count(DISTINCT ac) > 0 AS same_category
         }
+        CALL {
+            WITH anchor, candidate
+            OPTIONAL MATCH (anchor)-[:HAS_DIFFICULTY]->(ad:Difficulty)<-[:HAS_DIFFICULTY]-(candidate)
+            RETURN count(DISTINCT ad) > 0 AS same_difficulty
+        }
+        CALL {
+            WITH anchor, candidate
+            OPTIONAL MATCH (anchor)-[:HAS_TITLE_TERM]->(at:TitleTerm)<-[:HAS_TITLE_TERM]-(candidate)
+            RETURN count(DISTINCT at) AS shared_title_terms
+        }
         WITH candidate,
              count(DISTINCT peer) AS peer_count,
              sum(CASE type(peer_rel) WHEN 'COOKED' THEN 8.0 ELSE 5.0 END) AS peer_signal,
              max(shared_ingredients) AS shared_ingredients,
-             max(same_category) AS same_category
+             max(shared_title_terms) AS shared_title_terms,
+             max(same_category) AS same_category,
+             max(same_difficulty) AS same_difficulty
         WITH candidate,
              peer_count,
              shared_ingredients,
+             shared_title_terms,
              same_category,
+             same_difficulty,
              peer_signal +
              (peer_count * 2.0) +
              (shared_ingredients * 1.2) +
-             CASE WHEN same_category THEN 2.0 ELSE 0.0 END AS ranking
+             (shared_title_terms * 0.8) +
+             CASE WHEN same_category THEN 2.0 ELSE 0.0 END +
+             CASE WHEN same_difficulty THEN 0.3 ELSE 0.0 END AS ranking
         RETURN candidate.id AS id,
                ranking,
                peer_count,
                shared_ingredients,
-               same_category
+               shared_title_terms,
+               same_category,
+               same_difficulty
         ORDER BY ranking DESC, peer_count DESC, candidate.score DESC, candidate.title ASC
         LIMIT $limit
         """
@@ -350,6 +509,11 @@ class Neo4jService:
             OPTIONAL MATCH (anchor)-[:HAS_DIFFICULTY]->(ad:Difficulty)<-[:HAS_DIFFICULTY]-(candidate)
             RETURN count(DISTINCT ad) > 0 AS same_difficulty
         }
+        CALL {
+            WITH anchor, candidate
+            OPTIONAL MATCH (anchor)-[:HAS_TITLE_TERM]->(at:TitleTerm)<-[:HAS_TITLE_TERM]-(candidate)
+            RETURN count(DISTINCT at) AS shared_title_terms
+        }
         WITH candidate,
              count(DISTINCT peer) AS peer_count,
              sum(CASE type(peer_rel) WHEN 'COOKED' THEN 8.0 ELSE 5.0 END) AS peer_signal,
@@ -358,6 +522,7 @@ class Neo4jService:
              max(same_pref_difficulty) AS same_pref_difficulty,
              max(same_experience) AS same_experience,
              max(shared_ingredients) AS shared_ingredients,
+             max(shared_title_terms) AS shared_title_terms,
              max(same_category) AS same_category,
              max(same_difficulty) AS same_difficulty
         WITH candidate,
@@ -365,6 +530,7 @@ class Neo4jService:
              profile_overlap,
              shared_history_count,
              shared_ingredients,
+             shared_title_terms,
              same_category,
              same_difficulty,
              peer_signal +
@@ -374,6 +540,7 @@ class Neo4jService:
              (same_pref_difficulty * 1.0) +
              (same_experience * 0.75) +
              (shared_ingredients * 1.25) +
+             (shared_title_terms * 0.8) +
              CASE WHEN same_category THEN 2.5 ELSE 0.0 END +
              CASE WHEN same_difficulty THEN 0.5 ELSE 0.0 END AS ranking
         RETURN candidate.id AS id,
@@ -381,6 +548,7 @@ class Neo4jService:
                peer_count,
                profile_overlap,
                shared_ingredients,
+               shared_title_terms,
                same_category,
                same_difficulty
         ORDER BY ranking DESC, peer_count DESC, candidate.score DESC, candidate.title ASC
@@ -485,6 +653,7 @@ class Neo4jService:
             "CREATE CONSTRAINT ingredient_name IF NOT EXISTS FOR (i:Ingredient) REQUIRE i.name IS UNIQUE",
             "CREATE CONSTRAINT category_name IF NOT EXISTS FOR (c:Category) REQUIRE c.name IS UNIQUE",
             "CREATE CONSTRAINT difficulty_name IF NOT EXISTS FOR (d:Difficulty) REQUIRE d.name IS UNIQUE",
+            "CREATE CONSTRAINT title_term_name IF NOT EXISTS FOR (t:TitleTerm) REQUIRE t.name IS UNIQUE",
         ]
         async with self.driver.session() as session:
             for statement in statements:
@@ -502,7 +671,9 @@ class Neo4jService:
 
 def _normalize_mode(mode: str) -> str:
     normalized = (mode or "hybrid").strip().lower()
-    if normalized not in {"hybrid", "ingredients", "type"}:
+    if normalized == "type":
+        return "category"
+    if normalized not in {"hybrid", "ingredients", "category", "title"}:
         return "hybrid"
     return normalized
 
@@ -521,24 +692,27 @@ def _recipe_payload(recipe: Any) -> dict | None:
     if not recipe_id:
         return None
 
+    semantic = build_recipe_search_fields(payload)
     updated_at = payload.get("updated_at") or payload.get("created_at") or datetime.now(timezone.utc)
     created_at = payload.get("created_at") or updated_at
-    ingredients = [str(item).strip().lower() for item in payload.get("ingredients") or [] if str(item).strip()]
 
     return {
         "id": str(recipe_id),
-        "title": str(payload.get("title") or ""),
-        "description": str(payload.get("description") or ""),
-        "category": str(payload.get("category") or payload.get("category_potato") or "GENERAL"),
-        "difficulty": str(payload.get("difficulty") or "unknown"),
+        "title": clean_human_text(payload.get("title") or ""),
+        "title_canonical": semantic["title_canonical"],
+        "description": clean_human_text(payload.get("description") or ""),
+        "category": clean_human_text(payload.get("category") or payload.get("category_potato") or "general"),
+        "difficulty": clean_human_text(payload.get("difficulty") or "unknown"),
         "cooking_time": int(payload.get("cooking_time") or 0),
         "score": float(payload.get("score") or 0.0),
         "image_url": payload.get("image_url"),
         "source_name": str(payload.get("source_name") or payload.get("source") or "cookpad_pe"),
         "source_url": str(payload.get("source_url") or ""),
-        "category_key": str(payload.get("category") or payload.get("category_potato") or "GENERAL").strip() or "GENERAL",
-        "difficulty_key": str(payload.get("difficulty") or "unknown").strip().lower() or "unknown",
-        "ingredients": ingredients,
+        "category_key": semantic["category_canonical"] or canonicalize_category(payload.get("category") or payload.get("category_potato") or "general"),
+        "difficulty_key": semantic["difficulty_canonical"] or canonicalize_difficulty(payload.get("difficulty") or "unknown"),
+        "ingredients": semantic["ingredient_terms"],
+        "title_terms": semantic["title_terms"],
+        "search_terms": semantic["search_terms"],
         "created_at": _isoformat(created_at),
         "updated_at": _isoformat(updated_at),
     }
@@ -568,8 +742,8 @@ def _user_payload(user: dict | None) -> dict | None:
         "role": str(user.get("role") or "user"),
         "source": str(user.get("source") or "mongo_truth"),
         "seed_persona": user.get("seed_persona"),
-        "preferred_categories": [str(item).strip().upper() for item in preferred_categories if str(item).strip()],
-        "favorite_difficulty": str(profile.get("favorite_difficulty") or preferences.get("difficulty") or ""),
+        "preferred_categories": [canonicalize_category(item) for item in preferred_categories if str(item).strip()],
+        "favorite_difficulty": canonicalize_difficulty(profile.get("favorite_difficulty") or preferences.get("difficulty") or ""),
         "experience_level": str(profile.get("experience_level") or ""),
         "household_size": int(profile.get("household_size") or 0),
         "city": str(profile.get("city") or ""),

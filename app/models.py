@@ -16,6 +16,7 @@ class RecommendationSimilarity(BaseModel):
     audience_score: float = 0.0
     personalized_score: float = 0.0
     shared_ingredients: int = 0
+    shared_title_terms: int = 0
     peer_count: int = 0
     profile_overlap: int = 0
     same_category: bool = False
