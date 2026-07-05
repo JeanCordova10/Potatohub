@@ -301,6 +301,8 @@ async def refresh(request: Request):
     )
 
 
+<<<<<<< HEAD
+=======
 @router.get("/filters")
 async def filters():
     col = get_recipes()
