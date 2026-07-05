@@ -300,22 +300,6 @@ async def refresh(request: Request):
         fallback_used=False,
     )
 
-
-<<<<<<< HEAD
-=======
-@router.get("/filters")
-async def filters():
-    col = get_recipes()
-    categories = sorted([item for item in await col.distinct("category_potato") if item])
-    difficulties = sorted([item for item in await col.distinct("difficulty") if item])
-    sources = sorted([item for item in await col.distinct("source") if item])
-    return {
-        "categories": categories,
-        "difficulties": difficulties,
-        "sources": sources,
-    }
-
-
 @router.get("/search", response_model=SearchResponse)
 async def search(
     q: str = "*",
