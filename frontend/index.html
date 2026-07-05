@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PotatoHub</title>
-    <link rel="stylesheet" href="/static/style.css?v=20260706a">
-    <script defer src="/static/script.js?v=20260706a"></script>
+    <link rel="stylesheet" href="/static/style.css?v=20260706b">
+    <script defer src="/static/script.js?v=20260706b"></script>
 </head>
 <body>
     <div class="shell">
@@ -13,54 +13,54 @@
             <div class="brand-block">
                 <p class="eyebrow">PotatoHub</p>
                 <h1>PotatoHub</h1>
-                <p class="lede">Explora recetas de papa con busqueda, ranking y recomendaciones. Si el backend no responde, el catalogo demo sigue activo para probar la interfaz.</p>
+                <p class="lede">Explora recetas de papa con búsqueda, ranking y recomendaciones. Si el backend no responde, el catálogo demo sigue activo para probar la interfaz.</p>
                 <div class="source-strip">
                     <span class="source-pill soft">Cookpad</span>
-                    <span id="catalogModeBadge" class="inline-status idle">Loading catalog</span>
+                    <span id="catalogModeBadge" class="inline-status idle">Cargando catálogo</span>
                 </div>
             </div>
             <div class="topbar-actions">
-                <span id="apiStatus" class="status-badge idle">Checking</span>
+                <span id="apiStatus" class="status-badge idle">Verificando</span>
                 <div class="auth-strip">
-                    <button id="authBtn" class="control-btn auth-btn" type="button">Login</button>
+                    <button id="authBtn" class="control-btn auth-btn" type="button">Iniciar sesión</button>
                     <span id="userChip" class="user-chip" hidden></span>
-                    <button id="logoutBtn" class="control-btn auth-btn secondary" type="button" hidden>Logout</button>
+                    <button id="logoutBtn" class="control-btn auth-btn secondary" type="button" hidden>Cerrar sesión</button>
                 </div>
-                <button id="refreshBtn" class="control-btn" type="button">Refresh catalog</button>
+                <button id="refreshBtn" class="control-btn" type="button">Actualizar catálogo</button>
             </div>
         </header>
 
-        <nav class="tabs" aria-label="Sections">
-            <button class="tab-btn active" data-tab="search" type="button">Search</button>
-            <button class="tab-btn" data-tab="ranking" type="button">Ranking</button>
-            <button class="tab-btn" data-tab="recomendaciones" type="button">Recommendations</button>
+        <nav class="tabs" aria-label="Secciones">
+            <button class="tab-btn active" data-tab="search" type="button">Buscar</button>
+            <button class="tab-btn" data-tab="ranking" type="button">Clasificación</button>
+            <button class="tab-btn" data-tab="recomendaciones" type="button">Recomendaciones</button>
         </nav>
 
         <main class="content">
             <section id="tab-search" class="tab-content active">
                 <div class="section-head">
                     <div>
-                        <h2>Catalog</h2>
+                        <h2>Catálogo</h2>
                     </div>
-                    <div id="catalogCount" class="inline-status">0 recipes</div>
+                    <div id="catalogCount" class="inline-status">0 recetas</div>
                 </div>
 
                 <div class="search-panel">
                     <div class="search-box">
-                        <input id="searchInput" type="search" placeholder="Search recipes, ingredients or source...">
-                        <button id="searchBtn" type="button">Search</button>
+                        <input id="searchInput" type="search" placeholder="Buscar recetas, ingredientes o fuente...">
+                        <button id="searchBtn" type="button">Buscar</button>
                     </div>
                     <div class="filters">
-                        <select id="filterCategory" aria-label="Category filter">
-                            <option value="">All categories</option>
+                        <select id="filterCategory" aria-label="Filtro de categoría">
+                            <option value="">Todas las categorías</option>
                         </select>
-                        <select id="filterDifficulty" aria-label="Difficulty filter">
-                            <option value="">All difficulty</option>
+                        <select id="filterDifficulty" aria-label="Filtro de dificultad">
+                            <option value="">Todas las dificultades</option>
                         </select>
-                        <select id="pageSizeSelect" aria-label="Recipes per page">
-                            <option value="6">6 per page</option>
-                            <option value="12" selected>12 per page</option>
-                            <option value="24">24 per page</option>
+                        <select id="pageSizeSelect" aria-label="Recetas por página">
+                            <option value="6">6 por página</option>
+                            <option value="12" selected>12 por página</option>
+                            <option value="24">24 por página</option>
                         </select>
                     </div>
                     <div id="refreshStatus" class="inline-status" aria-live="polite"></div>
@@ -76,7 +76,7 @@
             <section id="tab-ranking" class="tab-content">
                 <div class="section-head">
                     <div>
-                        <h2>Ranking</h2>
+                        <h2>Clasificación</h2>
                     </div>
                 </div>
                 <div id="rankingResults" class="results-grid" aria-live="polite"></div>
@@ -85,20 +85,20 @@
             <section id="tab-recomendaciones" class="tab-content">
                 <div class="section-head">
                     <div>
-                        <h2>Recommendations</h2>
+                        <h2>Recomendaciones</h2>
                     </div>
                 </div>
                 <div class="search-panel">
                     <div class="search-box">
-                        <input id="recipeIdInput" type="text" placeholder="Recipe ID or words like papa, causa, chuño">
-                        <button id="recommendBtn" type="button">Recommend</button>
+                        <input id="recipeIdInput" type="text" placeholder="ID de receta o palabras como papa, causa, chuño">
+                        <button id="recommendBtn" type="button">Recomendar</button>
                     </div>
                     <div class="filters">
-                        <select id="recommendationMode" aria-label="Recommendation mode">
-                            <option value="hybrid">Hybrid</option>
-                            <option value="ingredients">Ingredients</option>
-                            <option value="category">Category</option>
-                            <option value="title">Title words</option>
+                        <select id="recommendationMode" aria-label="Modo de recomendación">
+                            <option value="hybrid">Híbrido</option>
+                            <option value="ingredients">Ingredientes</option>
+                            <option value="category">Categoría</option>
+                            <option value="title">Palabras del título</option>
                         </select>
                     </div>
                 </div>
@@ -111,10 +111,10 @@
             <section class="recipe-modal-panel" role="dialog" aria-modal="true" aria-labelledby="recipeModalTitle">
                 <div class="recipe-modal-header">
                     <div>
-                        <p class="eyebrow">Recipe detail</p>
-                        <h2 id="recipeModalTitle">Recipe</h2>
+                        <p class="eyebrow">Detalle de receta</p>
+                        <h2 id="recipeModalTitle">Receta</h2>
                     </div>
-                    <button id="recipeModalClose" class="icon-btn" type="button" aria-label="Close recipe details">X</button>
+                    <button id="recipeModalClose" class="icon-btn" type="button" aria-label="Cerrar detalles de la receta">X</button>
                 </div>
                 <div id="recipeModalBody" class="recipe-modal-body"></div>
             </section>
@@ -125,46 +125,46 @@
             <section class="auth-modal-panel" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
                 <div class="auth-modal-header">
                     <div>
-                        <p class="eyebrow">Account</p>
-                        <h2 id="authModalTitle">Login</h2>
+                        <p class="eyebrow">Cuenta</p>
+                        <h2 id="authModalTitle">Iniciar sesión</h2>
                     </div>
-                    <button id="authModalClose" class="icon-btn" type="button" aria-label="Close auth dialog">X</button>
+                    <button id="authModalClose" class="icon-btn" type="button" aria-label="Cerrar diálogo de autenticación">X</button>
                 </div>
-                <div class="auth-tabs" role="tablist" aria-label="Authentication mode">
-                    <button class="auth-tab active" data-auth-tab="login" type="button">Login</button>
-                    <button class="auth-tab" data-auth-tab="register" type="button">Register</button>
+                <div class="auth-tabs" role="tablist" aria-label="Modo de autenticación">
+                    <button class="auth-tab active" data-auth-tab="login" type="button">Iniciar sesión</button>
+                    <button class="auth-tab" data-auth-tab="register" type="button">Registrarse</button>
                 </div>
                 <div id="authStatus" class="inline-status" aria-live="polite"></div>
                 <div class="auth-panels">
                     <form id="loginForm" class="auth-form active">
                         <label>
-                            <span>Email</span>
-                            <input id="loginEmail" type="email" autocomplete="email" placeholder="you@example.com" required>
+                            <span>Correo</span>
+                            <input id="loginEmail" type="email" autocomplete="email" placeholder="tu@ejemplo.com" required>
                         </label>
                         <label>
-                            <span>Password</span>
+                            <span>Contraseña</span>
                             <input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••" required>
                         </label>
-                        <button class="control-btn auth-submit" type="submit">Enter</button>
+                        <button class="control-btn auth-submit" type="submit">Ingresar</button>
                     </form>
                     <form id="registerForm" class="auth-form">
                         <label>
-                            <span>Name</span>
-                            <input id="registerName" type="text" autocomplete="name" placeholder="Your name" required>
+                            <span>Nombre</span>
+                            <input id="registerName" type="text" autocomplete="name" placeholder="Tu nombre" required>
                         </label>
                         <label>
-                            <span>Email</span>
-                            <input id="registerEmail" type="email" autocomplete="email" placeholder="you@example.com" required>
+                            <span>Correo</span>
+                            <input id="registerEmail" type="email" autocomplete="email" placeholder="tu@ejemplo.com" required>
                         </label>
                         <label>
-                            <span>Password</span>
-                            <input id="registerPassword" type="password" autocomplete="new-password" placeholder="At least 6 characters" required>
+                            <span>Contraseña</span>
+                            <input id="registerPassword" type="password" autocomplete="new-password" placeholder="Al menos 6 caracteres" required>
                         </label>
-                        <button class="control-btn auth-submit" type="submit">Create account</button>
+                        <button class="control-btn auth-submit" type="submit">Crear cuenta</button>
                     </form>
                 </div>
                 <div class="auth-note">
-                    <span>Demo user:</span>
+                    <span>Usuario demo:</span>
                     <code>demo@potatohub.local</code>
                     <code>potato123</code>
                 </div>
@@ -172,7 +172,7 @@
         </div>
 
         <footer class="footer">
-            <span>Local backend ready</span>
+            <span>Backend local listo</span>
             <span class="muted">PotatoHub API</span>
         </footer>
     </div>

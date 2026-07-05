@@ -118,6 +118,90 @@ document.addEventListener("DOMContentLoaded", function () {
             .replace(/^-+|-+$/g, "");
     }
 
+    function capitalizeText(value) {
+        var text = String(value == null ? "" : value).trim();
+        if (!text) {
+            return "";
+        }
+        return text.charAt(0).toUpperCase() + text.slice(1);
+    }
+
+    function formatCategoryLabel(value) {
+        var normalized = normalizeTextValue(value || "");
+        var labels = {
+            acompanamiento: "Acompañamiento",
+            appetizer: "Entrada",
+            breakfast: "Desayuno",
+            cena: "Cena",
+            dessert: "Postre",
+            desayuno: "Desayuno",
+            dinner: "Cena",
+            drink: "Bebida",
+            entrada: "Entrada",
+            ensalada: "Ensalada",
+            general: "General",
+            lunch: "Almuerzo",
+            "main course": "Plato principal",
+            "main dish": "Plato principal",
+            merienda: "Merienda",
+            papa: "Papa",
+            plato: "Plato",
+            "plato principal": "Plato principal",
+            potato: "Papa",
+            postre: "Postre",
+            salad: "Ensalada",
+            "side dish": "Acompañamiento",
+            snack: "Merienda",
+            sopa: "Sopa",
+            soup: "Sopa"
+        };
+        return labels[normalized] || capitalizeText(value);
+    }
+
+    function formatDifficultyLabel(value) {
+        var normalized = normalizeTextValue(value || "");
+        var labels = {
+            advanced: "Avanzada",
+            beginner: "Principiante",
+            dificil: "Difícil",
+            easy: "Fácil",
+            facil: "Fácil",
+            hard: "Difícil",
+            intermediate: "Intermedia",
+            medium: "Media",
+            media: "Media"
+        };
+        return labels[normalized] || capitalizeText(value);
+    }
+
+    function formatCatalogModeLabel(mode) {
+        var normalized = normalizeTextValue(mode || "");
+        if (normalized === "live") {
+            return "Catálogo en vivo";
+        }
+        if (normalized === "demo") {
+            return "Catálogo demo";
+        }
+        if (normalized === "loading") {
+            return "Cargando catálogo";
+        }
+        return "Catálogo";
+    }
+
+    function formatApiStatusLabel(value) {
+        var normalized = normalizeTextValue(value || "");
+        if (normalized === "ok" || normalized === "online") {
+            return "En línea";
+        }
+        if (normalized === "degraded") {
+            return "Con fallas";
+        }
+        if (normalized === "offline") {
+            return "Sin conexión";
+        }
+        return capitalizeText(value);
+    }
+
     function cloneRecipe(recipe) {
         return JSON.parse(JSON.stringify(recipe || {}));
     }
@@ -177,7 +261,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!catalogModeBadge) {
             return;
         }
-        catalogModeBadge.textContent = label || (mode === "live" ? "Live catalog" : mode === "demo" ? "Demo catalog" : "Loading catalog");
+        catalogModeBadge.textContent = label || formatCatalogModeLabel(mode);
         catalogModeBadge.className = "inline-status " + (mode === "live" ? "success" : mode === "demo" ? "warning" : "idle");
     }
 
@@ -844,7 +928,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 return categoryCounts[b] - categoryCounts[a] || String(a).localeCompare(String(b));
             })
             .map(function (value) {
-                return { value: value, label: value, count: categoryCounts[value] };
+                return { value: value, label: formatCategoryLabel(value), count: categoryCounts[value] };
             });
 
         var difficulties = Object.keys(difficultyCounts)
@@ -858,7 +942,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 return difficultyCounts[b] - difficultyCounts[a] || String(a).localeCompare(String(b));
             })
             .map(function (value) {
-                return { value: value, label: value.charAt(0).toUpperCase() + value.slice(1), count: difficultyCounts[value] };
+                return { value: value, label: formatDifficultyLabel(value), count: difficultyCounts[value] };
             });
 
         var sources = Object.keys(sourceCounts)
@@ -903,10 +987,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
         return {
             categories: toOptionList(payload.categories, function (item) {
+                item.label = formatCategoryLabel(item.label || item.value || "");
                 return item;
             }),
             difficulties: toOptionList(payload.difficulties, function (item) {
-                item.label = item.label.charAt(0).toUpperCase() + item.label.slice(1);
+                item.label = formatDifficultyLabel(item.label || item.value || "");
                 return item;
             }),
             sources: toOptionList(payload.sources, function (item) {
@@ -922,13 +1007,13 @@ document.addEventListener("DOMContentLoaded", function () {
     function updateCatalogModeText() {
         if (catalogModeBadge) {
             if (catalogMode === "live") {
-                catalogModeBadge.textContent = "Live catalog";
+                catalogModeBadge.textContent = "Catálogo en vivo";
                 catalogModeBadge.className = "inline-status success";
             } else if (catalogMode === "demo") {
-                catalogModeBadge.textContent = "Demo catalog";
+                catalogModeBadge.textContent = "Catálogo demo";
                 catalogModeBadge.className = "inline-status warning";
             } else if (catalogMode === "loading") {
-                catalogModeBadge.textContent = "Loading catalog";
+                catalogModeBadge.textContent = "Cargando catálogo";
                 catalogModeBadge.className = "inline-status idle";
             }
         }
@@ -942,14 +1027,14 @@ document.addEventListener("DOMContentLoaded", function () {
         buildRecipe(
             {
                 id: "demo-potato-garden-pan",
-                title: "Garden Potato Skillet",
-                description: "Golden potatoes, herbs and a bright finish of lemon. Quick, colorful and easy to test end to end.",
-                category: "Potato",
-                difficulty: "easy",
+                title: "Sartén de papas con hierbas",
+                description: "Papas doradas, hierbas frescas y un toque de limón. Rápida, colorida y fácil de probar de punta a punta.",
+                category: "Papa",
+                difficulty: "facil",
                 cooking_time: 25,
-                ingredients: ["3 potatoes", "2 tbsp olive oil", "1 tsp salt", "1 tsp paprika", "1 tbsp parsley"],
-                instructions: ["Dice the potatoes.", "Pan-fry until golden.", "Season with paprika and salt.", "Finish with parsley and lemon."],
-                tags: ["skillet", "quick", "herb-forward"],
+                ingredients: ["3 papas", "2 cucharadas de aceite de oliva", "1 cucharadita de sal", "1 cucharadita de pimentón", "1 cucharada de perejil"],
+                instructions: ["Corta las papas en cubos.", "Fríelas en la sartén hasta dorar.", "Sazona con pimentón y sal.", "Termina con perejil y limón."],
+                tags: ["sartén", "rápida", "hierbas"],
                 stats: { views: 18, saved: 4 },
                 score: 24,
             },
@@ -958,14 +1043,14 @@ document.addEventListener("DOMContentLoaded", function () {
         buildRecipe(
             {
                 id: "demo-cheesy-potato-bites",
-                title: "Cheesy Potato Bites",
-                description: "Crisp on the outside, soft on the inside, with a cheesy center that makes the card easy to verify.",
-                category: "Snack",
-                difficulty: "medium",
+                title: "Bocaditos de papa con queso",
+                description: "Crujientes por fuera, suaves por dentro, con un centro cremoso ideal para verificar la tarjeta.",
+                category: "Merienda",
+                difficulty: "media",
                 cooking_time: 35,
-                ingredients: ["4 potatoes", "1 cup grated cheese", "1 egg", "2 tbsp flour", "salt"],
-                instructions: ["Mash the potatoes.", "Mix with cheese and egg.", "Shape small bites.", "Bake until crisp."],
-                tags: ["party food", "baked", "cheese"],
+                ingredients: ["4 papas", "1 taza de queso rallado", "1 huevo", "2 cucharadas de harina", "sal"],
+                instructions: ["Haz puré con las papas.", "Mezcla con el queso y el huevo.", "Forma bocaditos pequeños.", "Hornea hasta que queden crujientes."],
+                tags: ["reunión", "horneado", "queso"],
                 stats: { views: 12, saved: 5 },
                 score: 29,
             },
@@ -974,14 +1059,14 @@ document.addEventListener("DOMContentLoaded", function () {
         buildRecipe(
             {
                 id: "demo-creamy-potato-soup",
-                title: "Creamy Potato Soup",
-                description: "A cozy bowl with a smooth texture, ideal for ranking and recommendation checks.",
-                category: "Soup",
-                difficulty: "easy",
+                title: "Sopa cremosa de papa",
+                description: "Un tazón reconfortante con textura suave, ideal para revisar clasificación y recomendaciones.",
+                category: "Sopa",
+                difficulty: "facil",
                 cooking_time: 40,
-                ingredients: ["5 potatoes", "1 onion", "2 cups vegetable stock", "1/2 cup cream", "salt and pepper"],
-                instructions: ["Saute the onion.", "Add potatoes and stock.", "Simmer until tender.", "Blend and finish with cream."],
-                tags: ["comfort food", "blended", "winter"],
+                ingredients: ["5 papas", "1 cebolla", "2 tazas de caldo de verduras", "1/2 taza de crema", "sal y pimienta"],
+                instructions: ["Sofríe la cebolla.", "Agrega las papas y el caldo.", "Cocina a fuego lento hasta que ablanden.", "Licúa y termina con crema."],
+                tags: ["confort", "licuado", "invierno"],
                 stats: { views: 24, saved: 9 },
                 score: 42,
             },
@@ -990,14 +1075,14 @@ document.addEventListener("DOMContentLoaded", function () {
         buildRecipe(
             {
                 id: "demo-roasted-potato-salad",
-                title: "Roasted Potato Salad",
-                description: "A bright salad with mustard dressing, fresh herbs and a clean layout for the search UI.",
-                category: "Salad",
-                difficulty: "medium",
+                title: "Ensalada de papa asada",
+                description: "Una ensalada fresca con aderezo de mostaza, hierbas frescas y una vista limpia para la interfaz.",
+                category: "Ensalada",
+                difficulty: "media",
                 cooking_time: 30,
-                ingredients: ["4 potatoes", "1 cucumber", "2 tbsp mustard", "1 tbsp vinegar", "herbs"],
-                instructions: ["Roast the potatoes.", "Mix the dressing.", "Combine everything while warm.", "Serve with herbs."],
-                tags: ["fresh", "side dish", "mustard"],
+                ingredients: ["4 papas", "1 pepino", "2 cucharadas de mostaza", "1 cucharada de vinagre", "hierbas"],
+                instructions: ["Hornea las papas.", "Mezcla el aderezo.", "Combina todo mientras esté tibio.", "Sirve con hierbas."],
+                tags: ["fresca", "acompañamiento", "mostaza"],
                 stats: { views: 14, saved: 3 },
                 score: 21,
             },
@@ -1006,14 +1091,14 @@ document.addEventListener("DOMContentLoaded", function () {
         buildRecipe(
             {
                 id: "demo-potato-breakfast-hash",
-                title: "Potato Breakfast Hash",
-                description: "Potatoes, eggs and peppers in one pan. Good for testing filters and quick interactions.",
-                category: "Breakfast",
-                difficulty: "easy",
+                title: "Desayuno de papa en sartén",
+                description: "Papas, huevos y pimientos en una sola sartén. Ideal para probar filtros e interacciones rápidas.",
+                category: "Desayuno",
+                difficulty: "facil",
                 cooking_time: 20,
-                ingredients: ["3 potatoes", "2 eggs", "1 pepper", "1 onion", "oil"],
-                instructions: ["Cook the potatoes.", "Add onion and pepper.", "Crack the eggs.", "Serve immediately."],
-                tags: ["brunch", "one pan", "savory"],
+                ingredients: ["3 papas", "2 huevos", "1 pimiento", "1 cebolla", "aceite"],
+                instructions: ["Cocina las papas.", "Agrega la cebolla y el pimiento.", "Añade los huevos.", "Sirve de inmediato."],
+                tags: ["brunch", "una sartén", "salado"],
                 stats: { views: 31, saved: 12 },
                 score: 51,
             },
@@ -1022,14 +1107,14 @@ document.addEventListener("DOMContentLoaded", function () {
         buildRecipe(
             {
                 id: "demo-loaded-potato-main",
-                title: "Loaded Potato Main",
-                description: "A heartier main dish with smoked seasoning, sour cream and a stronger tone for the cards.",
-                category: "Main Dish",
-                difficulty: "hard",
+                title: "Plato fuerte de papa cargada",
+                description: "Un plato más contundente con sazón ahumada, crema agria y un tono más intenso para las tarjetas.",
+                category: "Plato principal",
+                difficulty: "dificil",
                 cooking_time: 55,
-                ingredients: ["4 potatoes", "1 cup sour cream", "1 cup cheese", "chives", "smoked paprika"],
-                instructions: ["Bake the potatoes.", "Slice open and fluff the center.", "Top with sour cream and cheese.", "Finish with chives."],
-                tags: ["hearty", "oven", "dinner"],
+                ingredients: ["4 papas", "1 taza de crema agria", "1 taza de queso", "cebollín", "pimentón ahumado"],
+                instructions: ["Hornea las papas.", "Ábrelas y esponja el centro.", "Agrega crema agria y queso.", "Termina con cebollín."],
+                tags: ["contundente", "horno", "cena"],
                 stats: { views: 22, saved: 8 },
                 score: 39,
             },
@@ -1038,14 +1123,14 @@ document.addEventListener("DOMContentLoaded", function () {
         buildRecipe(
             {
                 id: "demo-potato-dessert-cakes",
-                title: "Sweet Potato Mini Cakes",
-                description: "A softer dessert-style card to verify contrast, modal detail and ranking states.",
-                category: "Dessert",
-                difficulty: "medium",
+                title: "Mini tortas de camote",
+                description: "Una receta dulce y suave para verificar contraste, detalle en modal y estados de clasificación.",
+                category: "Postre",
+                difficulty: "media",
                 cooking_time: 45,
-                ingredients: ["2 sweet potatoes", "1/2 cup sugar", "1 cup flour", "2 eggs", "cinnamon"],
-                instructions: ["Cook and mash the sweet potatoes.", "Mix with the rest of the batter.", "Portion into molds.", "Bake until set."],
-                tags: ["sweet", "bake", "cinnamon"],
+                ingredients: ["2 camotes", "1/2 taza de azúcar", "1 taza de harina", "2 huevos", "canela"],
+                instructions: ["Cocina y aplasta los camotes.", "Mezcla con el resto de la masa.", "Distribuye en moldes.", "Hornea hasta que cuaje."],
+                tags: ["dulce", "horneado", "canela"],
                 stats: { views: 11, saved: 2 },
                 score: 17,
             },
@@ -1176,7 +1261,7 @@ document.addEventListener("DOMContentLoaded", function () {
             registerForm.classList.toggle("active", activeMode === "register");
         }
         if (authModalTitle) {
-            authModalTitle.textContent = activeMode === "register" ? "Crear cuenta" : "Iniciar sesion";
+            authModalTitle.textContent = activeMode === "register" ? "Crear cuenta" : "Iniciar sesión";
         }
     }
 
@@ -1288,11 +1373,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 password: loginPassword.value,
             });
             applyAuthSession(session);
-            setAuthStatus("Sesion iniciada como " + (session.user && session.user.name ? session.user.name : "usuario"), "success");
+            setAuthStatus("Sesión iniciada como " + (session.user && session.user.name ? session.user.name : "usuario"), "success");
             closeAuthModal();
-            setStatusMessage("Sesion iniciada correctamente", "success");
+            setStatusMessage("Sesión iniciada correctamente", "success");
         } catch (error) {
-            setAuthStatus(error.message || "No se pudo iniciar sesion", "error");
+            setAuthStatus(error.message || "No se pudo iniciar sesión", "error");
         }
     }
 
@@ -1310,7 +1395,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 password: registerPassword.value,
             });
             applyAuthSession(session);
-            setAuthStatus("Cuenta creada y sesion activa", "success");
+            setAuthStatus("Cuenta creada y sesión activa", "success");
             closeAuthModal();
             setStatusMessage("Cuenta creada correctamente", "success");
         } catch (error) {
@@ -1320,9 +1405,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function logoutUser() {
         clearAuthState();
-        setAuthStatus("Sesion cerrada", "warning");
+        setAuthStatus("Sesión cerrada", "warning");
         closeAuthModal();
-        setStatusMessage("Sesion cerrada", "warning");
+        setStatusMessage("Sesión cerrada", "warning");
     }
 
     function createFallbackImageData(recipe, label) {
@@ -1339,7 +1424,7 @@ document.addEventListener("DOMContentLoaded", function () {
         };
         var colors = palette[tone] || palette.neutral;
         var safeTitle = escapeHtml(truncateText(recipe && recipe.title ? recipe.title : label || "PotatoHub", 36));
-        var safeCategory = escapeHtml(String(recipe && recipe.category ? recipe.category : "Recipe"));
+        var safeCategory = escapeHtml(formatCategoryLabel(recipe && recipe.category ? recipe.category : "General"));
         var svg = [
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" role="img" aria-label="' + safeTitle + '">',
             "<defs>",
@@ -1369,7 +1454,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return [
             '<img class="' + className + '"',
             ' src="' + escapeHtml(imageUrl) + '"',
-            ' alt="' + escapeHtml(altText || recipe.title || "Recipe") + '"',
+            ' alt="' + escapeHtml(altText || recipe.title || "Receta") + '"',
             ' loading="lazy" decoding="async" referrerpolicy="no-referrer"',
             ' data-fallback="' + escapeHtml(fallback) + '"',
             ' onerror="this.onerror=null;if(this.dataset.fallback&&this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"',
@@ -1400,16 +1485,16 @@ document.addEventListener("DOMContentLoaded", function () {
         var cooked = card.querySelector('[data-field="cooked"]');
         var score = card.querySelector('[data-field="score"]');
         if (views) {
-            views.textContent = "Views: " + data.views;
+            views.textContent = "Vistas: " + data.views;
         }
         if (saved) {
-            saved.textContent = "Saved: " + data.saved;
+            saved.textContent = "Guardadas: " + data.saved;
         }
         if (cooked) {
-            cooked.textContent = "Cooked: " + (data.cooked || 0);
+            cooked.textContent = "Cocinadas: " + (data.cooked || 0);
         }
         if (score) {
-            score.textContent = "Score: " + data.score;
+            score.textContent = "Puntuación: " + data.score;
         }
     }
 
@@ -1422,16 +1507,16 @@ document.addEventListener("DOMContentLoaded", function () {
         var cooked = recipeModal.querySelector('[data-detail-field="cooked"]');
         var score = recipeModal.querySelector('[data-detail-field="score"]');
         if (views) {
-            views.textContent = "Views: " + data.views;
+            views.textContent = "Vistas: " + data.views;
         }
         if (saved) {
-            saved.textContent = "Saved: " + data.saved;
+            saved.textContent = "Guardadas: " + data.saved;
         }
         if (cooked) {
-            cooked.textContent = "Cooked: " + (data.cooked || 0);
+            cooked.textContent = "Cocinadas: " + (data.cooked || 0);
         }
         if (score) {
-            score.textContent = "Score: " + data.score;
+            score.textContent = "Puntuación: " + data.score;
         }
     }
 
@@ -1448,10 +1533,10 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function renderRecipeDetail(recipe) {
-        var title = escapeHtml(recipe.title || "Untitled recipe");
-        var description = escapeHtml(recipe.description || "No description available.");
-        var category = escapeHtml(recipe.category || "General");
-        var difficulty = escapeHtml(recipe.difficulty || "n/a");
+        var title = escapeHtml(recipe.title || "Receta sin título");
+        var description = escapeHtml(recipe.description || "No hay descripción disponible.");
+        var category = escapeHtml(formatCategoryLabel(recipe.category || "General"));
+        var difficulty = escapeHtml(formatDifficultyLabel(recipe.difficulty || "n/d"));
         var cookingTime = recipe.cooking_time || 0;
         var ingredientCount = Array.isArray(recipe.ingredients) ? recipe.ingredients.length : 0;
         var instructionCount = Array.isArray(recipe.instructions) ? recipe.instructions.length : 0;
@@ -1465,7 +1550,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var instructions = Array.isArray(recipe.instructions) ? recipe.instructions : [];
         var tags = Array.isArray(recipe.tags) ? recipe.tags : [];
         var tone = getRecipeTone(recipe);
-        var visual = renderRecipeImage(recipe, "recipe-detail-image", recipe.title || "Recipe");
+        var visual = renderRecipeImage(recipe, "recipe-detail-image", recipe.title || "Receta");
 
         return [
             '<article class="recipe-detail" data-tone="' + escapeHtml(tone) + '">',
@@ -1481,10 +1566,10 @@ document.addEventListener("DOMContentLoaded", function () {
             '<p class="recipe-detail-description">' + description + "</p>",
             '<div class="recipe-detail-meta">',
             '<span data-detail-field="time">' + formatTime(cookingTime) + "</span>",
-            '<span data-detail-field="views">Views: ' + views + "</span>",
-            '<span data-detail-field="saved">Saved: ' + saved + "</span>",
-            '<span data-detail-field="cooked">Cooked: ' + cooked + "</span>",
-            '<span data-detail-field="score">Score: ' + score + "</span>",
+            '<span data-detail-field="views">Vistas: ' + views + "</span>",
+            '<span data-detail-field="saved">Guardadas: ' + saved + "</span>",
+            '<span data-detail-field="cooked">Cocinadas: ' + cooked + "</span>",
+            '<span data-detail-field="score">Puntuación: ' + score + "</span>",
             '<span>' + formatCount(ingredientCount, "ingrediente", "ingredientes") + "</span>",
             '<span>' + formatCount(instructionCount, "paso", "pasos") + "</span>",
             "</div>",
@@ -1493,27 +1578,27 @@ document.addEventListener("DOMContentLoaded", function () {
             '<button class="action-btn" type="button" onclick="interact(\'' + escapeJs(recipe.id) + '\', \'cook\')">Cocinada</button>',
             '<button class="action-btn secondary" type="button" onclick="getRecommendations(\'' + escapeJs(recipe.id) + '\')">Similares</button>',
             sourceUrl
-                ? '<a class="action-link" href="' + sourceUrl + '" target="_blank" rel="noopener">Open source</a>'
+                ? '<a class="action-link" href="' + sourceUrl + '" target="_blank" rel="noopener">Abrir fuente</a>'
                 : "",
             "</div>",
             "</div>",
             "</div>",
             '<div class="recipe-detail-grid">',
             '<section class="recipe-detail-block">',
-            "<h3>Ingredients</h3>",
+            "<h3>Ingredientes</h3>",
             ingredients.length
                 ? '<ul class="detail-list">' + ingredients.map(function (item) {
                       return "<li>" + escapeHtml(item) + "</li>";
                   }).join("") + "</ul>"
-                : '<p class="muted">No ingredients available.</p>',
+                : '<p class="muted">No hay ingredientes disponibles.</p>',
             "</section>",
             '<section class="recipe-detail-block">',
-            "<h3>Instructions</h3>",
+            "<h3>Instrucciones</h3>",
             instructions.length
                 ? '<ol class="detail-list ordered">' + instructions.map(function (item) {
                       return "<li>" + escapeHtml(item) + "</li>";
                   }).join("") + "</ol>"
-                : '<p class="muted">No instructions available.</p>',
+                : '<p class="muted">No hay instrucciones disponibles.</p>',
             "</section>",
             "</div>",
             tags.length
@@ -1530,7 +1615,7 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
         currentRecipeId = recipe.id;
-        recipeModalTitle.textContent = recipe.title || "Recipe";
+        recipeModalTitle.textContent = recipe.title || "Receta";
         recipeModalBody.innerHTML = renderRecipeDetail(recipe);
         recipeModal.hidden = false;
         recipeModal.classList.add("is-open");
@@ -1555,8 +1640,8 @@ document.addEventListener("DOMContentLoaded", function () {
         if (needsFetch) {
             try {
                 if (recipeModal && recipeModalBody && recipeModalTitle) {
-                    recipeModalTitle.textContent = "Recipe";
-                    recipeModalBody.innerHTML = '<div class="loading-state">Loading recipe...</div>';
+                    recipeModalTitle.textContent = "Receta";
+                    recipeModalBody.innerHTML = '<div class="loading-state">Cargando receta...</div>';
                     recipeModal.hidden = false;
                     recipeModal.classList.add("is-open");
                     recipeModal.style.display = "grid";
@@ -1572,8 +1657,8 @@ document.addEventListener("DOMContentLoaded", function () {
             } catch (error) {
                 console.error("Recipe detail error:", error);
                 if (recipeModal && recipeModalBody && recipeModalTitle) {
-                    recipeModalTitle.textContent = "Recipe unavailable";
-                    recipeModalBody.innerHTML = '<div class="error-state">Recipe details could not be loaded.</div>';
+                    recipeModalTitle.textContent = "Receta no disponible";
+                    recipeModalBody.innerHTML = '<div class="error-state">No se pudieron cargar los detalles de la receta.</div>';
                     recipeModal.hidden = false;
                     recipeModal.classList.add("is-open");
                     recipeModal.style.display = "grid";
@@ -1623,8 +1708,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function loadFilterOptions() {
         var filters = buildFilterOptions();
-        populateSelect(filterCategory, filters.categories || [], "All categories");
-        populateSelect(filterDifficulty, filters.difficulties || [], "All difficulty");
+        populateSelect(filterCategory, filters.categories || [], "Todas las categorías");
+        populateSelect(filterDifficulty, filters.difficulties || [], "Todas las dificultades");
         state.category = filterCategory ? filterCategory.value : "";
         state.difficulty = filterDifficulty ? filterDifficulty.value : "";
     }
@@ -1643,8 +1728,8 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!filters) {
                 throw new Error("invalid filters payload");
             }
-            populateSelect(filterCategory, filters.categories || [], "All categories");
-            populateSelect(filterDifficulty, filters.difficulties || [], "All difficulty");
+            populateSelect(filterCategory, filters.categories || [], "Todas las categorías");
+            populateSelect(filterDifficulty, filters.difficulties || [], "Todas las dificultades");
             state.category = filterCategory ? filterCategory.value : "";
             state.difficulty = filterDifficulty ? filterDifficulty.value : "";
             return true;
@@ -1739,7 +1824,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 setCatalogMode(previousMode === "live" ? "live" : "demo");
             }
             if (force) {
-                setStatusMessage("Demo catalog active: " + error.message, "warning");
+                setStatusMessage("Catálogo demo activo: " + error.message, "warning");
             }
             console.warn("Live catalog unavailable:", error);
         } finally {
@@ -1779,10 +1864,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function renderRecipeCard(recipe, options) {
         options = options || {};
-        var title = escapeHtml(recipe.title || "Untitled recipe");
+        var title = escapeHtml(recipe.title || "Receta sin título");
         var description = escapeHtml(truncateText(recipe.description || "", 140));
-        var category = escapeHtml(recipe.category || "General");
-        var difficulty = escapeHtml(recipe.difficulty || "n/a");
+        var category = escapeHtml(formatCategoryLabel(recipe.category || "General"));
+        var difficulty = escapeHtml(formatDifficultyLabel(recipe.difficulty || "n/d"));
         var cookingTime = recipe.cooking_time || 0;
         var ingredientCount = Array.isArray(recipe.ingredients) ? recipe.ingredients.length : 0;
         var instructionCount = Array.isArray(recipe.instructions) ? recipe.instructions.length : 0;
@@ -1796,7 +1881,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var tags = Array.isArray(recipe.tags) ? recipe.tags.slice(0, 3) : [];
         var rankBadge = options.rank ? '<div class="rank-badge">#' + options.rank + "</div>" : "";
         var tone = getRecipeTone(recipe);
-        var visual = renderRecipeImage(recipe, "recipe-image", recipe.title || "Recipe");
+        var visual = renderRecipeImage(recipe, "recipe-image", recipe.title || "Receta");
 
         return [
             '<article class="recipe-card" data-id="' + escapeHtml(recipe.id) + '" data-tone="' + escapeHtml(tone) + '">',
@@ -1816,10 +1901,10 @@ document.addEventListener("DOMContentLoaded", function () {
             "</div>",
             '<div class="recipe-meta">',
             '<span data-field="time">' + formatTime(cookingTime) + "</span>",
-            '<span data-field="views">Views: ' + views + "</span>",
-            '<span data-field="saved">Saved: ' + saved + "</span>",
-            '<span data-field="cooked">Cooked: ' + cooked + "</span>",
-            '<span data-field="score">Score: ' + score + "</span>",
+            '<span data-field="views">Vistas: ' + views + "</span>",
+            '<span data-field="saved">Guardadas: ' + saved + "</span>",
+            '<span data-field="cooked">Cocinadas: ' + cooked + "</span>",
+            '<span data-field="score">Puntuación: ' + score + "</span>",
             '<span>' + formatCount(ingredientCount, "ingrediente", "ingredientes") + "</span>",
             '<span>' + formatCount(instructionCount, "paso", "pasos") + "</span>",
             "</div>",
@@ -1833,7 +1918,7 @@ document.addEventListener("DOMContentLoaded", function () {
             '<button class="action-btn" type="button" onclick="interact(\'' + escapeJs(recipe.id) + '\', \'save\')">Guardar</button>',
             '<button class="action-btn secondary" type="button" onclick="getRecommendations(\'' + escapeJs(recipe.id) + '\')">Similares</button>',
             sourceUrl
-                ? '<a class="action-link" href="' + sourceUrl + '" target="_blank" rel="noopener">Source</a>'
+                ? '<a class="action-link" href="' + sourceUrl + '" target="_blank" rel="noopener">Fuente</a>'
                 : "",
             "</div>",
             tags.length
@@ -1849,7 +1934,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function renderRecipeGrid(container, recipes, options) {
         options = options || {};
         if (!recipes || !recipes.length) {
-            container.innerHTML = '<div class="empty-state">No recipes found.</div>';
+            container.innerHTML = '<div class="empty-state">No se encontraron recetas.</div>';
             return;
         }
         recipes.forEach(function (recipe) {
@@ -1873,8 +1958,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (paginationSummary) {
             paginationSummary.textContent = total
-                ? "Page " + (currentPage + 1) + " of " + Math.max(totalPages, 1) + " | Showing " + startItem + "-" + endItem + " of " + total
-                : "No recipes found";
+                ? "Página " + (currentPage + 1) + " de " + Math.max(totalPages, 1) + " | Mostrando " + startItem + "-" + endItem + " de " + total
+                : "No se encontraron recetas";
         }
 
         if (totalPages <= 1) {
@@ -1895,8 +1980,8 @@ document.addEventListener("DOMContentLoaded", function () {
             );
         };
 
-        addButton(0, "First", currentPage === 0, false);
-        addButton(Math.max(currentPage - 1, 0), "Prev", currentPage === 0, false);
+        addButton(0, "Primera", currentPage === 0, false);
+        addButton(Math.max(currentPage - 1, 0), "Anterior", currentPage === 0, false);
 
         var startPage = Math.max(0, currentPage - 2);
         var endPage = Math.min(totalPages - 1, currentPage + 2);
@@ -1913,8 +1998,8 @@ document.addEventListener("DOMContentLoaded", function () {
             buttons.push('<span class="page-ellipsis">...</span>');
         }
 
-        addButton(Math.min(currentPage + 1, totalPages - 1), "Next", currentPage >= totalPages - 1, false);
-        addButton(totalPages - 1, "Last", currentPage >= totalPages - 1, false);
+        addButton(Math.min(currentPage + 1, totalPages - 1), "Siguiente", currentPage >= totalPages - 1, false);
+        addButton(totalPages - 1, "Última", currentPage >= totalPages - 1, false);
         searchPagination.innerHTML = buttons.join("");
     }
 
@@ -1926,7 +2011,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
             var data = await response.json();
             apiOnline = true;
-            apiStatus.textContent = data.status === "ok" ? "Online" : "Degraded";
+            apiStatus.textContent = data.status === "ok" ? "En línea" : "Con fallas";
             apiStatus.className = "status-badge online";
 
             if (catalogMode !== "live" && !liveCatalogLoading) {
@@ -1935,13 +2020,13 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         } catch (error) {
             apiOnline = false;
-            apiStatus.textContent = "Offline";
+            apiStatus.textContent = "Sin conexión";
             apiStatus.className = "status-badge offline";
         }
     }
 
     async function doSearch() {
-        searchResults.innerHTML = '<div class="loading-state">Searching catalog...</div>';
+        searchResults.innerHTML = '<div class="loading-state">Buscando en el catálogo...</div>';
         searchPagination.innerHTML = "";
 
         var pageSize = getPageSize();
@@ -1979,12 +2064,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 setCatalogMode("live");
                 renderPagination(total);
                 updateCatalogCount(total);
-                setStatusMessage("Showing " + total + " recipes from live catalog", "success");
+                setStatusMessage("Mostrando " + total + " recetas del catálogo en vivo", "success");
                 return;
             } catch (error) {
                 console.warn("Live search fallback:", error);
                 apiOnline = false;
-                apiStatus.textContent = "Offline";
+                apiStatus.textContent = "Sin conexión";
                 apiStatus.className = "status-badge offline";
             }
         }
@@ -1999,13 +2084,13 @@ document.addEventListener("DOMContentLoaded", function () {
         renderPagination(data.total || 0);
         updateCatalogCount(data.total || 0);
         setStatusMessage(
-            "Showing " + (data.total || 0) + " recipes from " + (catalogMode === "live" ? "live catalog" : "demo catalog"),
+            "Mostrando " + (data.total || 0) + " recetas del " + (catalogMode === "live" ? "catálogo en vivo" : "catálogo demo"),
             catalogMode === "live" ? "success" : "warning"
         );
     }
 
     async function loadRanking() {
-        rankingResults.innerHTML = '<div class="loading-state">Loading ranking...</div>';
+        rankingResults.innerHTML = '<div class="loading-state">Cargando clasificación...</div>';
 
         if (apiOnline) {
             try {
@@ -2027,7 +2112,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         var recipes = rankingLocalCatalog(10);
         if (!recipes.length) {
-            rankingResults.innerHTML = '<div class="empty-state">No ranking data yet.</div>';
+            rankingResults.innerHTML = '<div class="empty-state">Todavía no hay datos de clasificación.</div>';
             return;
         }
         renderRecipeGrid(rankingResults, recipes, { rankOffset: 0 });
@@ -2046,7 +2131,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     async function interact(recipeId, action) {
         if ((action === "save" || action === "cook") && !currentUserId()) {
-            setStatusMessage("Inicia sesion para guardar o marcar recetas como cocinadas", "warning");
+            setStatusMessage("Inicia sesión para guardar o marcar recetas como cocinadas", "warning");
             openAuthModal("login");
             return null;
         }
@@ -2113,7 +2198,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 var buttons = card.querySelectorAll(".action-btn");
                 var saveBtn = buttons.length > 1 ? buttons[1] : null;
                 if (saveBtn) {
-                    saveBtn.textContent = "Saved";
+                    saveBtn.textContent = "Guardado";
                     setTimeout(function () {
                         saveBtn.textContent = "Guardar";
                     }, 1200);
@@ -2178,12 +2263,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
     async function getPersonalRecommendations() {
         if (!currentUserId()) {
-            setStatusMessage("Inicia sesion para ver recomendaciones personalizadas", "warning");
+        setStatusMessage("Inicia sesión para ver recomendaciones personalizadas", "warning");
             openAuthModal("login");
             return;
         }
 
-        recommendResults.innerHTML = '<div class="loading-state">Loading recommendations for you...</div>';
+        recommendResults.innerHTML = '<div class="loading-state">Cargando recomendaciones para ti...</div>';
 
         try {
             var response = await fetch(API_BASE + "/users/me/recommendations?limit=6", {
@@ -2195,21 +2280,21 @@ document.addEventListener("DOMContentLoaded", function () {
             var data = await response.json();
             var recipes = data.results || [];
             if (!recipes.length) {
-                recommendResults.innerHTML = '<div class="empty-state">No personal recommendations available yet.</div>';
+                recommendResults.innerHTML = '<div class="empty-state">Aún no hay recomendaciones personalizadas.</div>';
             } else {
                 renderRecipeGrid(recommendResults, recipes);
             }
             setActiveTab("recomendaciones");
         } catch (error) {
             console.warn("Personal recommendation error:", error);
-            recommendResults.innerHTML = '<div class="empty-state">No personal recommendations available yet.</div>';
+            recommendResults.innerHTML = '<div class="empty-state">Aún no hay recomendaciones personalizadas.</div>';
         }
     }
 
     async function getRecommendations(recipeId) {
         var inputValue = String(recipeId == null ? "" : recipeId).trim();
         recipeIdInput.value = inputValue;
-        recommendResults.innerHTML = '<div class="loading-state">Loading recommendations...</div>';
+        recommendResults.innerHTML = '<div class="loading-state">Cargando recomendaciones...</div>';
         var mode = normalizeRecommendationMode(recommendationMode ? recommendationMode.value || "hybrid" : "hybrid");
         var anchorRecipe = getRecipeById(inputValue);
         var localRecipes = anchorRecipe ? recommendLocalCatalog(anchorRecipe.id, 6, mode) : discoverLocalRecommendations(inputValue, 6, mode);
@@ -2241,7 +2326,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 } else {
                     renderRecipeGrid(recommendResults, recipes);
                     if (inputValue) {
-                        setStatusMessage("Recommendations based on: " + inputValue, "success");
+                    setStatusMessage("Recomendaciones basadas en: " + inputValue, "success");
                     }
                 }
                 closeRecipeModal();
@@ -2258,7 +2343,7 @@ document.addEventListener("DOMContentLoaded", function () {
         } else {
             renderRecipeGrid(recommendResults, localRecipes);
             if (inputValue) {
-                setStatusMessage("Recommendations based on: " + inputValue + " (local)", "warning");
+                setStatusMessage("Recomendaciones basadas en: " + inputValue + " (local)", "warning");
             }
         }
         closeRecipeModal();
@@ -2266,7 +2351,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     async function refreshCatalog() {
-        setStatusMessage("Refreshing catalog...", "loading");
+        setStatusMessage("Actualizando catálogo...", "loading");
         refreshBtn.disabled = true;
         try {
             if (apiOnline) {
@@ -2278,7 +2363,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
                 var data = await response.json();
                 setStatusMessage(
-                    "Updated " + data.stored + " recipes from " + (data.sources && data.sources.length ? data.sources.join(", ") : "demo"),
+                    "Se actualizaron " + data.stored + " recetas desde " + (data.sources && data.sources.length ? data.sources.join(", ") : "demo"),
                     data.fallback_used ? "warning" : "success"
                 );
                 await loadRemoteFilterOptions();
@@ -2290,7 +2375,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 state.page = 0;
                 doSearch();
                 setStatusMessage(
-                    catalogMode === "demo" ? "Demo catalog refreshed" : "Current catalog refreshed",
+                    catalogMode === "demo" ? "Catálogo demo actualizado" : "Catálogo actual actualizado",
                     "warning"
                 );
                 if (document.querySelector('[data-tab="ranking"]').classList.contains("active")) {
@@ -2306,7 +2391,7 @@ document.addEventListener("DOMContentLoaded", function () {
             state.page = 0;
             doSearch();
             setStatusMessage(
-                "Refresh error: " + error.message + (catalogMode === "demo" ? " - demo catalog restored" : " - keeping current catalog"),
+                "Error al actualizar: " + error.message + (catalogMode === "demo" ? " - se restauró el catálogo demo" : " - se mantiene el catálogo actual"),
                 "error"
             );
         } finally {
