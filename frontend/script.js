@@ -1608,6 +1608,17 @@ document.addEventListener("DOMContentLoaded", function () {
         renderRecipeGrid(rankingResults, recipes, { rankOffset: 0 });
     }
 
+    function getOrCreateUserId() {
+        var key = "ph_user_id";
+        var existing = window.localStorage.getItem(key);
+        if (existing) {
+            return existing;
+        }
+        var id = "u-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9);
+        window.localStorage.setItem(key, id);
+        return id;
+    }
+
     async function interact(recipeId, action) {
         var localRecipe = updateRecipeInCatalog(recipeId, function (recipe) {
             if (action === "view") {
@@ -1673,7 +1684,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ action: action }),
+                body: JSON.stringify({ action: action, user_id: getOrCreateUserId() }),
             });
             if (!response.ok) {
                 throw new Error("interaction failed");

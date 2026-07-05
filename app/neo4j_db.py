@@ -25,6 +25,9 @@ def get_driver() -> AsyncDriver:
 
 async def ensure_constraints() -> None:
     async with _driver.session() as s:
-        await s.run("CREATE CONSTRAINT IF NOT EXISTS FOR (r:Recipe) REQUIRE r.id IS UNIQUE")
-        await s.run("CREATE CONSTRAINT IF NOT EXISTS FOR (u:User)   REQUIRE u.id IS UNIQUE")
+        await s.run("CREATE CONSTRAINT IF NOT EXISTS FOR (r:Recipe)     REQUIRE r.id   IS UNIQUE")
+        await s.run("CREATE CONSTRAINT IF NOT EXISTS FOR (u:User)       REQUIRE u.id   IS UNIQUE")
         await s.run("CREATE CONSTRAINT IF NOT EXISTS FOR (i:Ingredient) REQUIRE i.name IS UNIQUE")
+        await s.run("CREATE CONSTRAINT IF NOT EXISTS FOR (c:Category)   REQUIRE c.name IS UNIQUE")
+        await s.run("CREATE INDEX viewed_ts IF NOT EXISTS FOR ()-[r:VIEWED]-() ON (r.timestamp)")
+        await s.run("CREATE INDEX saved_ts  IF NOT EXISTS FOR ()-[r:SAVED]-()  ON (r.timestamp)")

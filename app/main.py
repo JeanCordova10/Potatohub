@@ -4,8 +4,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app import database, neo4j_db
+from app.limiter import limiter
 from app.routers import recipes
 
 load_dotenv()
@@ -14,6 +18,7 @@ load_dotenv()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     database.init_client()
+    await database.init_indexes()
     await neo4j_db.init_driver()
     await neo4j_db.ensure_constraints()
     yield
@@ -27,6 +32,10 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

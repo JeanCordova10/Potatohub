@@ -1,7 +1,8 @@
 import re
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, Query
-from app.database import get_recipes, doc_to_recipe
+from fastapi import APIRouter, HTTPException, Query, Request
+from app.database import get_recipes, doc_to_recipe, get_interaction_log
+from app.limiter import limiter
 from app.neo4j_db import get_driver
 from app.models import (
     Recipe,
@@ -201,7 +202,8 @@ async def get_recipe(recipe_id: str):
 
 
 @router.post("/{recipe_id}/interact", response_model=InteractionResponse)
-async def interact(recipe_id: str, payload: InteractionRequest):
+@limiter.limit("30/minute")
+async def interact(recipe_id: str, payload: InteractionRequest, request: Request):
     col = get_recipes()
     if not await col.find_one({"_id": recipe_id}):
         raise HTTPException(status_code=404, detail="Recipe not found")
@@ -218,6 +220,14 @@ async def interact(recipe_id: str, payload: InteractionRequest):
 
     # Neo4j: relacion VIEWED o SAVED con timestamp
     await _neo4j_record_interaction(recipe_id, payload.user_id, payload.action)
+
+    # MongoDB: log inmutable de interacciones
+    await get_interaction_log().insert_one({
+        "userId":    payload.user_id,
+        "recipeId":  recipe_id,
+        "type":      "VIEWED" if payload.action == "view" else "SAVED",
+        "timestamp": datetime.now(timezone.utc),
+    })
 
     doc = await col.find_one({"_id": recipe_id})
     stats = doc.get("stats") or {}

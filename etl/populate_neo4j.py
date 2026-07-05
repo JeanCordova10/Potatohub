@@ -38,9 +38,10 @@ def run():
     driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
 
     with driver.session() as s:
-        s.run("CREATE CONSTRAINT IF NOT EXISTS FOR (r:Recipe) REQUIRE r.id IS UNIQUE")
-        s.run("CREATE CONSTRAINT IF NOT EXISTS FOR (u:User)   REQUIRE u.id IS UNIQUE")
+        s.run("CREATE CONSTRAINT IF NOT EXISTS FOR (r:Recipe)     REQUIRE r.id   IS UNIQUE")
+        s.run("CREATE CONSTRAINT IF NOT EXISTS FOR (u:User)       REQUIRE u.id   IS UNIQUE")
         s.run("CREATE CONSTRAINT IF NOT EXISTS FOR (i:Ingredient) REQUIRE i.name IS UNIQUE")
+        s.run("CREATE CONSTRAINT IF NOT EXISTS FOR (c:Category)   REQUIRE c.name IS UNIQUE")
 
     total = col.count_documents({})
     print(f"\nRecetas en MongoDB: {total}")
@@ -57,6 +58,8 @@ def run():
             MERGE (r:Recipe {id: row.id})
             SET r.title    = row.title,
                 r.category = row.category
+            MERGE (c:Category {name: row.category})
+            MERGE (r)-[:BELONGS_TO]->(c)
             WITH r, row
             UNWIND row.keywords AS kw
             MERGE (i:Ingredient {name: kw})

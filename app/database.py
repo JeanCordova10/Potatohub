@@ -1,5 +1,6 @@
 import os
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
+from pymongo import TEXT, ASCENDING
 
 _client: AsyncIOMotorClient | None = None
 
@@ -20,6 +21,18 @@ def close_client() -> None:
 def get_recipes() -> AsyncIOMotorCollection:
     db_name = os.getenv("MONGO_DB", "potatohub")
     return _client[db_name]["recipes"]
+
+
+def get_interaction_log() -> AsyncIOMotorCollection:
+    db_name = os.getenv("MONGO_DB", "potatohub")
+    return _client[db_name]["interaction_log"]
+
+
+async def init_indexes() -> None:
+    col = get_recipes()
+    await col.create_index([("title", TEXT), ("ingredients", TEXT)], name="text_search")
+    await col.create_index([("category_potato", ASCENDING)])
+    await col.create_index([("difficulty", ASCENDING)])
 
 
 def doc_to_recipe(doc: dict) -> dict:
