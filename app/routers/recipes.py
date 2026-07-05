@@ -1,110 +1,297 @@
+from __future__ import annotations
+
+import re
 import re
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, Query
-from app.database import get_recipes, doc_to_recipe
-from app.neo4j_db import get_driver
+from uuid import uuid4
+
+from fastapi import APIRouter, HTTPException, Query, Request, status
+
+from app import database
+from app.auth_context import current_user_from_request
+from app.database import compute_recipe_score, doc_to_recipe, get_recipes
 from app.models import (
-    Recipe,
-    SearchResponse,
     InteractionRequest,
     InteractionResponse,
+    Recipe,
     RecommendationsResponse,
     RefreshResponse,
+    SearchResponse,
 )
+
 
 router = APIRouter()
 
-# ── helpers Neo4j ─────────────────────────────────────────────────────────────
 
-async def _neo4j_record_interaction(recipe_id: str, user_id: str, action: str) -> None:
-    rel = "VIEWED" if action == "view" else "SAVED"
-    async with get_driver().session() as s:
-        await s.execute_write(
-            lambda tx: tx.run(
-                f"""
-                MERGE (u:User {{id: $uid}})
-                MERGE (r:Recipe {{id: $rid}})
-                CREATE (u)-[:{rel} {{timestamp: datetime()}}]->(r)
-                """,
-                uid=user_id,
-                rid=recipe_id,
+def _normalize_mode(mode: str) -> str:
+    normalized = (mode or "hybrid").strip().lower()
+    if normalized not in {"hybrid", "ingredients", "type"}:
+        return "hybrid"
+    return normalized
+
+
+def _blank_similarity() -> dict:
+    return {
+        "graph_score": 0.0,
+        "content_score": 0.0,
+        "audience_score": 0.0,
+        "personalized_score": 0.0,
+        "shared_ingredients": 0,
+        "peer_count": 0,
+        "profile_overlap": 0,
+        "same_category": False,
+        "same_difficulty": False,
+    }
+
+
+def _merge_ranked_rows(sources: list[tuple[str, float, list[dict]]], limit: int) -> list[dict]:
+    combined: dict[str, dict] = {}
+    for source_name, weight, rows in sources:
+        for row in rows:
+            recipe_id = str(row.get("id") or "")
+            if not recipe_id:
+                continue
+            entry = combined.setdefault(
+                recipe_id,
+                {
+                    "id": recipe_id,
+                    "score": 0.0,
+                    "similarity": _blank_similarity(),
+                    "reasons": [],
+                },
             )
+            base_score = float(row.get("ranking") or 0.0)
+            weighted_score = round(base_score * weight, 4)
+            entry["score"] += weighted_score
+
+            similarity = entry["similarity"]
+            if source_name == "content":
+                similarity["content_score"] += weighted_score
+                similarity["shared_ingredients"] = max(similarity["shared_ingredients"], int(row.get("shared_ingredients") or 0))
+                similarity["same_category"] = similarity["same_category"] or bool(row.get("same_category") or False)
+                similarity["same_difficulty"] = similarity["same_difficulty"] or bool(row.get("same_difficulty") or False)
+                entry["reasons"].append("Coincide con ingredientes, categoria o dificultad de la receta base.")
+            elif source_name == "audience":
+                similarity["audience_score"] += weighted_score
+                similarity["peer_count"] = max(similarity["peer_count"], int(row.get("peer_count") or 0))
+                similarity["shared_ingredients"] = max(similarity["shared_ingredients"], int(row.get("shared_ingredients") or 0))
+                similarity["same_category"] = similarity["same_category"] or bool(row.get("same_category") or False)
+                entry["reasons"].append("Usuarios que guardaron o cocinaron esta receta tambien eligieron esta.")
+            elif source_name == "personalized":
+                similarity["personalized_score"] += weighted_score
+                similarity["peer_count"] = max(similarity["peer_count"], int(row.get("peer_count") or 0))
+                similarity["profile_overlap"] = max(similarity["profile_overlap"], int(row.get("profile_overlap") or 0))
+                similarity["shared_ingredients"] = max(similarity["shared_ingredients"], int(row.get("shared_ingredients") or 0))
+                similarity["same_category"] = similarity["same_category"] or bool(row.get("same_category") or False)
+                similarity["same_difficulty"] = similarity["same_difficulty"] or bool(row.get("same_difficulty") or False)
+                entry["reasons"].append("Usuarios con gustos y perfil parecidos al tuyo la prefieren.")
+
+    merged = []
+    for entry in combined.values():
+        similarity = entry["similarity"]
+        similarity["graph_score"] = round(
+            similarity["content_score"] + similarity["audience_score"] + similarity["personalized_score"],
+            2,
         )
+        entry["score"] = round(entry["score"], 4)
+        entry["reason"] = " ".join(dict.fromkeys(entry["reasons"]))
+        merged.append(entry)
+
+    merged.sort(
+        key=lambda item: (
+            item["score"],
+            item["similarity"]["personalized_score"],
+            item["similarity"]["audience_score"],
+            item["similarity"]["content_score"],
+        ),
+        reverse=True,
+    )
+    return merged[:limit]
 
 
-async def _neo4j_ranking(period: str, limit: int) -> list[str]:
-    """Devuelve recipe_ids ordenados por score desde Neo4j. Retorna [] si no hay datos."""
-    days = {"week": 7, "month": 30, "all": 36500}.get(period, 30)
-    async with get_driver().session() as s:
-        result = await s.run(
-            """
-            MATCH (r:Recipe)<-[i:VIEWED|SAVED]-()
-            WHERE i.timestamp >= datetime() - duration({days: $days})
-            WITH r,
-                 sum(CASE WHEN type(i) = 'VIEWED' THEN 0.5 ELSE 5.0 END) AS score
-            ORDER BY score DESC
-            LIMIT $limit
-            RETURN r.id AS id
-            """,
-            days=days,
-            limit=limit,
-        )
-        records = await result.data()
-    return [r["id"] for r in records]
+async def _sync_recipe_to_graph(request: Request, recipe_doc: dict) -> None:
+    neo4j_service = getattr(request.app.state, "neo4j_service", None)
+    if neo4j_service is None:
+        return
+    try:
+        await neo4j_service.write_recipe(doc_to_recipe(recipe_doc))
+    except Exception:
+        return
 
 
-async def _neo4j_collab(recipe_id: str, limit: int) -> list[str]:
-    """Filtrado colaborativo: usuarios que guardaron esta receta tambien guardaron..."""
-    async with get_driver().session() as s:
-        result = await s.run(
-            """
-            MATCH (r:Recipe {id: $rid})<-[:SAVED]-(u:User)-[:SAVED]->(r2:Recipe)
-            WHERE r2.id <> $rid
-            WITH r2, count(DISTINCT u) AS shared
-            ORDER BY shared DESC
-            LIMIT $limit
-            RETURN r2.id AS id
-            """,
-            rid=recipe_id,
-            limit=limit,
-        )
-        records = await result.data()
-    return [r["id"] for r in records]
-
-
-async def _neo4j_similar_category(recipe_id: str, category: str, limit: int) -> list[str]:
-    """Recetas de la misma categoria en el grafo."""
-    async with get_driver().session() as s:
-        result = await s.run(
-            """
-            MATCH (r2:Recipe {category: $cat})
-            WHERE r2.id <> $rid
-            WITH r2 ORDER BY rand()
-            LIMIT $limit
-            RETURN r2.id AS id
-            """,
-            cat=category,
-            rid=recipe_id,
-            limit=limit,
-        )
-        records = await result.data()
-    return [r["id"] for r in records]
-
-
-async def _fetch_recipes_by_ids(ids: list[str]) -> list[Recipe]:
+async def _fetch_recipes_by_ids(ids: list[str], metadata: dict[str, dict] | None = None) -> list[Recipe]:
     if not ids:
         return []
-    col = get_recipes()
-    docs = await col.find({"_id": {"$in": ids}}).to_list(len(ids))
-    index = {d["_id"]: d for d in docs}
-    return [Recipe(**doc_to_recipe(index[i])) for i in ids if i in index]
+    docs = await get_recipes().find({"_id": {"$in": ids}}).to_list(length=len(ids))
+    index = {str(doc["_id"]): doc for doc in docs}
+    results = []
+    for recipe_id in ids:
+        doc = index.get(str(recipe_id))
+        if not doc:
+            continue
+        payload = doc_to_recipe(doc)
+        meta = (metadata or {}).get(str(recipe_id)) or {}
+        if meta:
+            payload["similarity"] = meta.get("similarity") or None
+            payload["recommendation_reason"] = meta.get("reason") or ""
+        results.append(Recipe(**payload))
+    return results
 
 
-# ── endpoints ─────────────────────────────────────────────────────────────────
+async def _mongo_recommendations_fallback(anchor: dict, recipe_id: str, mode: str, limit: int) -> list[Recipe]:
+    ingredients = anchor.get("ingredients") or []
+    keywords = list(
+        {
+            word.lower()
+            for ingredient in ingredients
+            for word in re.split(r"\W+", ingredient)
+            if len(word) > 3
+        }
+    )[:15]
+
+    category = anchor.get("category_potato", "GENERAL")
+    base_filter: dict = {"_id": {"$ne": recipe_id}}
+    if mode == "ingredients" and keywords:
+        pattern = re.compile("|".join(map(re.escape, keywords)), re.IGNORECASE)
+        query = {**base_filter, "ingredients": {"$elemMatch": {"$regex": pattern}}}
+    else:
+        clauses = [{"category_potato": category}]
+        if keywords:
+            pattern = re.compile("|".join(map(re.escape, keywords)), re.IGNORECASE)
+            clauses.append({"ingredients": {"$elemMatch": {"$regex": pattern}}})
+        query = {**base_filter, "$or": clauses}
+
+    docs = await get_recipes().find(query).limit(limit).to_list(length=limit)
+    results = []
+    for doc in docs:
+        payload = doc_to_recipe(doc)
+        payload["recommendation_reason"] = "Fallback MongoDB por categoria o ingredientes compartidos."
+        results.append(Recipe(**payload))
+    return results
+
+
+async def _record_mongo_interaction(recipe_doc: dict, user: dict | None, action: str) -> dict:
+    now = datetime.now(timezone.utc)
+    recipes = database.get_recipes()
+    recipe_id = str(recipe_doc["_id"])
+
+    if action == "view":
+        await recipes.update_one(
+            {"_id": recipe_id},
+            {"$inc": {"stats.views": 1}, "$set": {"updated_at": now}},
+        )
+    else:
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Login required to save or mark recipes as cooked",
+            )
+
+        states = database.get_user_recipe_states()
+        state_filter = {"user_id": user["user_id"], "recipe_id": recipe_id}
+        existing_state = await states.find_one(state_filter)
+        state_update = {
+            "$set": {
+                "user_id": user["user_id"],
+                "recipe_id": recipe_id,
+                "last_action": action,
+                "last_action_at": now,
+                "updated_at": now,
+                "source": "app_auth",
+            },
+            "$setOnInsert": {
+                "_id": f"{user['user_id']}::{recipe_id}",
+                "created_at": now,
+                "viewed_count": 0,
+                "saved": False,
+                "saved_at": None,
+                "cooked": False,
+                "cooked_at": None,
+            },
+        }
+        recipe_increments = {}
+
+        if action == "save":
+            already_saved = bool(existing_state and existing_state.get("saved"))
+            state_update["$set"]["saved"] = True
+            state_update["$set"]["saved_at"] = (existing_state.get("saved_at") if existing_state else None) or now
+            if not already_saved:
+                recipe_increments["stats.saved"] = 1
+        elif action == "cook":
+            already_cooked = bool(existing_state and existing_state.get("cooked"))
+            state_update["$set"]["cooked"] = True
+            state_update["$set"]["cooked_at"] = (existing_state.get("cooked_at") if existing_state else None) or now
+            if not already_cooked:
+                recipe_increments["stats.cooked"] = 1
+
+        await states.update_one(state_filter, state_update, upsert=True)
+        recipe_update = {"$set": {"updated_at": now}}
+        if recipe_increments:
+            recipe_update["$inc"] = recipe_increments
+        await recipes.update_one({"_id": recipe_id}, recipe_update)
+
+    if user is not None:
+        event_doc = {
+            "_id": f"{user['user_id']}::{recipe_id}::{action}::{uuid4().hex}",
+            "user_id": user["user_id"],
+            "recipe_id": recipe_id,
+            "action": action,
+            "source": "app_auth",
+            "created_at": now,
+        }
+        await database.get_user_events().insert_one(event_doc)
+
+        if action == "view":
+            await database.get_user_recipe_states().update_one(
+                {"user_id": user["user_id"], "recipe_id": recipe_id},
+                {
+                    "$inc": {"viewed_count": 1},
+                    "$set": {
+                        "user_id": user["user_id"],
+                        "recipe_id": recipe_id,
+                        "last_action": "view",
+                        "last_action_at": now,
+                        "updated_at": now,
+                        "source": "app_auth",
+                    },
+                    "$setOnInsert": {
+                        "_id": f"{user['user_id']}::{recipe_id}",
+                        "created_at": now,
+                        "saved": False,
+                        "saved_at": None,
+                        "cooked": False,
+                        "cooked_at": None,
+                    },
+                },
+                upsert=True,
+            )
+
+    return await recipes.find_one({"_id": recipe_id})
+
+
+async def _best_effort_sync_interaction(request: Request, user: dict | None, recipe_doc: dict, action: str) -> None:
+    if user is None:
+        return
+    neo4j_service = getattr(request.app.state, "neo4j_service", None)
+    if neo4j_service is None:
+        return
+    try:
+        await neo4j_service.record_interaction(user, doc_to_recipe(recipe_doc), action)
+    except Exception:
+        return
+
 
 @router.post("/refresh", response_model=RefreshResponse)
-async def refresh():
+async def refresh(request: Request):
     count = await get_recipes().count_documents({})
+    neo4j_service = getattr(request.app.state, "neo4j_service", None)
+    if neo4j_service is not None:
+        docs = await get_recipes().find({}).to_list(length=None)
+        if docs:
+            try:
+                await neo4j_service.write_recipes([doc_to_recipe(doc) for doc in docs])
+            except Exception:
+                pass
     return RefreshResponse(
         success=True,
         stored=count,
@@ -114,8 +301,6 @@ async def refresh():
     )
 
 
-<<<<<<< HEAD
-=======
 @router.get("/filters")
 async def filters():
     col = get_recipes()
@@ -129,7 +314,6 @@ async def filters():
     }
 
 
->>>>>>> aa8affc (Add Mongo and Neo4j user support)
 @router.get("/search", response_model=SearchResponse)
 async def search(
     q: str = "*",
@@ -139,42 +323,37 @@ async def search(
     size: int = Query(6, ge=1, le=50),
 ):
     col = get_recipes()
-    filters: dict = {}
+    filters_query: dict = {}
 
     if q and q != "*":
         pattern = re.compile(re.escape(q), re.IGNORECASE)
-        filters["$or"] = [
+        filters_query["$or"] = [
             {"title": {"$regex": pattern}},
             {"ingredients": {"$elemMatch": {"$regex": pattern}}},
         ]
 
     if category:
-        filters["category_potato"] = re.compile(f"^{re.escape(category)}$", re.IGNORECASE)
+        filters_query["category_potato"] = re.compile(f"^{re.escape(category)}$", re.IGNORECASE)
 
     if difficulty:
-        filters["difficulty"] = re.compile(f"^{re.escape(difficulty)}$", re.IGNORECASE)
+        filters_query["difficulty"] = re.compile(f"^{re.escape(difficulty)}$", re.IGNORECASE)
 
-    total = await col.count_documents(filters)
-    docs = await col.find(filters).skip(page * size).limit(size).to_list(size)
-    results = [Recipe(**doc_to_recipe(d)) for d in docs]
-
+    total = await col.count_documents(filters_query)
+    docs = await col.find(filters_query).skip(page * size).limit(size).to_list(length=size)
+    results = [Recipe(**doc_to_recipe(doc)) for doc in docs]
     return SearchResponse(total=total, page=page, size=size, results=results)
 
 
-# /ranking/{period} debe ir ANTES de /{recipe_id}
 @router.get("/ranking/{period}")
-async def ranking(
-    period: str,
-    limit: int = Query(10, ge=1, le=50),
-):
-    ids = await _neo4j_ranking(period, limit)
+async def ranking(request: Request, period: str, limit: int = Query(10, ge=1, le=50)):
+    neo4j_service = getattr(request.app.state, "neo4j_service", None)
+    rows = await neo4j_service.ranking(period, limit) if neo4j_service is not None else []
+    ids = [row["id"] for row in rows]
 
     if ids:
         results = await _fetch_recipes_by_ids(ids)
-        return {"period": period, "source": "neo4j", "results": [r.model_dump() for r in results]}
+        return {"period": period, "source": "neo4j", "results": [item.model_dump() for item in results]}
 
-    # Fallback MongoDB cuando aun no hay interacciones en el grafo
-    col = get_recipes()
     pipeline = [
         {
             "$addFields": {
@@ -182,6 +361,7 @@ async def ranking(
                     "$add": [
                         {"$multiply": [{"$ifNull": ["$stats.views", 0]}, 0.5]},
                         {"$multiply": [{"$ifNull": ["$stats.saved", 0]}, 5.0]},
+                        {"$multiply": [{"$ifNull": ["$stats.cooked", 0]}, 8.0]},
                     ]
                 }
             }
@@ -189,107 +369,89 @@ async def ranking(
         {"$sort": {"computed_score": -1}},
         {"$limit": limit},
     ]
-    docs = await col.aggregate(pipeline).to_list(limit)
-    results = [Recipe(**doc_to_recipe(d)) for d in docs]
-    return {"period": period, "source": "mongodb_fallback", "results": [r.model_dump() for r in results]}
+    docs = await get_recipes().aggregate(pipeline).to_list(length=limit)
+    results = [Recipe(**doc_to_recipe(doc)) for doc in docs]
+    return {"period": period, "source": "mongodb_fallback", "results": [item.model_dump() for item in results]}
 
 
 @router.get("/{recipe_id}", response_model=Recipe)
-async def get_recipe(recipe_id: str):
+async def get_recipe(request: Request, recipe_id: str):
     doc = await get_recipes().find_one({"_id": recipe_id})
     if not doc:
-        raise HTTPException(status_code=404, detail="Recipe not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
+    await _sync_recipe_to_graph(request, doc)
     return Recipe(**doc_to_recipe(doc))
 
 
 @router.post("/{recipe_id}/interact", response_model=InteractionResponse)
-async def interact(recipe_id: str, payload: InteractionRequest):
-    col = get_recipes()
-    if not await col.find_one({"_id": recipe_id}):
-        raise HTTPException(status_code=404, detail="Recipe not found")
+async def interact(request: Request, recipe_id: str, payload: InteractionRequest):
+    action = (payload.action or "").strip().lower()
+    if action not in {"view", "save", "cook"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="action must be 'view', 'save' or 'cook'")
 
-    if payload.action not in ("view", "save"):
-        raise HTTPException(status_code=400, detail="action must be 'view' or 'save'")
+    recipe_doc = await get_recipes().find_one({"_id": recipe_id})
+    if not recipe_doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
 
-    # MongoDB: contadores atomicos
-    field = "stats.views" if payload.action == "view" else "stats.saved"
-    await col.update_one(
-        {"_id": recipe_id},
-        {"$inc": {field: 1}, "$set": {"updated_at": datetime.now(timezone.utc)}},
-    )
+    user = await current_user_from_request(request)
+    updated_doc = await _record_mongo_interaction(recipe_doc, user, action)
+    await _best_effort_sync_interaction(request, user, updated_doc, action)
 
-    # Neo4j: relacion VIEWED o SAVED con timestamp
-    await _neo4j_record_interaction(recipe_id, payload.user_id, payload.action)
-
-    doc = await col.find_one({"_id": recipe_id})
-    stats = doc.get("stats") or {}
-    views = int(stats.get("views") or 0)
-    saved = int(stats.get("saved") or 0)
-    score = round(views * 0.5 + saved * 5, 2)
-
+    stats = updated_doc.get("stats") or {}
+    user_id = user["user_id"] if user else "anonymous"
     return InteractionResponse(
         success=True,
         recipe_id=recipe_id,
-        action=payload.action,
-        views=views,
-        saved=saved,
-        score=score,
+        action=action,
+        user_id=user_id,
+        views=int(stats.get("views") or 0),
+        saved=int(stats.get("saved") or 0),
+        cooked=int(stats.get("cooked") or 0),
+        score=compute_recipe_score(stats),
     )
 
 
 @router.get("/{recipe_id}/recommendations", response_model=RecommendationsResponse)
 async def recommendations(
+    request: Request,
     recipe_id: str,
     limit: int = Query(6, ge=1, le=24),
-    mode: str = Query("hybrid"),
+    mode: str = Query("hybrid", pattern="^(hybrid|ingredients|type)$"),
 ):
-    col = get_recipes()
-    anchor = await col.find_one({"_id": recipe_id})
+    anchor = await get_recipes().find_one({"_id": recipe_id})
     if not anchor:
-        raise HTTPException(status_code=404, detail="Recipe not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
 
-    category = anchor.get("category_potato", "GENERAL")
-    ids: list[str] = []
+    await _sync_recipe_to_graph(request, anchor)
+    mode = _normalize_mode(mode)
+    current_user = await current_user_from_request(request)
+    neo4j_service = getattr(request.app.state, "neo4j_service", None)
+    merged_rows: list[dict] = []
 
-    if mode == "type":
-        ids = await _neo4j_similar_category(recipe_id, category, limit)
+    if neo4j_service is not None:
+        content_rows = await neo4j_service.recommend_by_content(recipe_id, limit=limit * 2, mode=mode)
+        audience_rows = await neo4j_service.recommend_from_anchor_audience(recipe_id, limit=limit * 2) if mode == "hybrid" else []
+        personalized_rows = []
+        if mode == "hybrid" and current_user is not None:
+            personalized_rows = await neo4j_service.recommend_for_user_from_recipe(
+                current_user["user_id"],
+                recipe_id,
+                limit=limit * 2,
+            )
 
-    elif mode == "hybrid":
-        # Filtrado colaborativo primero
-        ids = await _neo4j_collab(recipe_id, limit)
-        # Complementa con misma categoria si hacen falta
-        if len(ids) < limit:
-            cat_ids = await _neo4j_similar_category(recipe_id, category, limit)
-            for cid in cat_ids:
-                if cid not in ids:
-                    ids.append(cid)
-                if len(ids) >= limit:
-                    break
+        sources = [("content", 1.0, content_rows)]
+        if audience_rows:
+            sources.append(("audience", 1.1, audience_rows))
+        if personalized_rows:
+            sources.append(("personalized", 1.35, personalized_rows))
+        merged_rows = _merge_ranked_rows(sources, limit=limit)
 
-    # Fallback MongoDB: ingredientes compartidos
-    if not ids:
-        ingredients = anchor.get("ingredients") or []
-        keywords = list({
-            word.lower()
-            for ing in ingredients
-            for word in re.split(r"\W+", ing)
-            if len(word) > 3
-        })[:15]
+    if merged_rows:
+        ids = [row["id"] for row in merged_rows]
+        metadata = {row["id"]: {"similarity": row["similarity"], "reason": row["reason"]} for row in merged_rows}
+        results = await _fetch_recipes_by_ids(ids, metadata=metadata)
+        if results:
+            return RecommendationsResponse(recipe_id=recipe_id, mode=mode, results=results)
 
-        base_filter: dict = {"_id": {"$ne": recipe_id}}
-        if mode == "ingredients" and keywords:
-            pattern = re.compile("|".join(map(re.escape, keywords)), re.IGNORECASE)
-            query = {**base_filter, "ingredients": {"$elemMatch": {"$regex": pattern}}}
-        else:
-            clauses = [{"category_potato": category}]
-            if keywords:
-                pattern = re.compile("|".join(map(re.escape, keywords)), re.IGNORECASE)
-                clauses.append({"ingredients": {"$elemMatch": {"$regex": pattern}}})
-            query = {**base_filter, "$or": clauses}
-
-        docs = await col.find(query).limit(limit).to_list(limit)
-        results = [Recipe(**doc_to_recipe(d)) for d in docs]
-        return RecommendationsResponse(recipe_id=recipe_id, mode=mode, results=results)
-
-    results = await _fetch_recipes_by_ids(ids[:limit])
-    return RecommendationsResponse(recipe_id=recipe_id, mode=mode, results=results)
+    fallback_results = await _mongo_recommendations_fallback(anchor, recipe_id, mode, limit)
+    return RecommendationsResponse(recipe_id=recipe_id, mode=mode, results=fallback_results)
