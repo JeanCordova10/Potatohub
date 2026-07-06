@@ -78,6 +78,12 @@ class UserRecommendationsResponse(BaseModel):
     results: list[Recipe]
 
 
+class UserLibraryResponse(BaseModel):
+    user_id: str
+    saved: list[Recipe]
+    cooked: list[Recipe]
+
+
 class RefreshResponse(BaseModel):
     success: bool
     stored: int

@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PotatoHub</title>
-    <link rel="stylesheet" href="/static/style.css?v=20260706b">
-    <script defer src="/static/script.js?v=20260706b"></script>
+    <link rel="stylesheet" href="/static/style.css?v=20260706e">
+    <script defer src="/static/script.js?v=20260706e"></script>
 </head>
 <body>
     <div class="shell">
@@ -34,6 +34,7 @@
             <button class="tab-btn active" data-tab="search" type="button">Buscar</button>
             <button class="tab-btn" data-tab="ranking" type="button">Clasificación</button>
             <button class="tab-btn" data-tab="recomendaciones" type="button">Recomendaciones</button>
+            <button class="tab-btn" data-tab="perfil" type="button">Perfil</button>
         </nav>
 
         <main class="content">
@@ -88,21 +89,57 @@
                         <h2>Recomendaciones</h2>
                     </div>
                 </div>
-                <div class="search-panel">
-                    <div class="search-box">
-                        <input id="recipeIdInput" type="text" placeholder="ID de receta o palabras como papa, causa, chuño">
-                        <button id="recommendBtn" type="button">Recomendar</button>
-                    </div>
-                    <div class="filters">
-                        <select id="recommendationMode" aria-label="Modo de recomendación">
-                            <option value="hybrid">Híbrido</option>
-                            <option value="ingredients">Ingredientes</option>
-                            <option value="category">Categoría</option>
-                            <option value="title">Palabras del título</option>
-                        </select>
+
+                <div id="recommendSimilarBlock" class="section-head" hidden>
+                    <div>
+                        <h3 id="recommendSimilarTitle">Similares</h3>
                     </div>
                 </div>
-                <div id="recommendResults" class="results-grid" aria-live="polite"></div>
+                <div id="recommendSimilarResults" class="results-grid" aria-live="polite"></div>
+
+                <div class="section-head">
+                    <div>
+                        <h3>Para ti</h3>
+                        <p class="muted">Recetas parecidas a las que ya guardaste o cocinaste.</p>
+                    </div>
+                </div>
+                <div id="recommendForYouResults" class="results-grid" aria-live="polite"></div>
+
+                <div class="section-head">
+                    <div>
+                        <h3>Otros usuarios también...</h3>
+                        <p class="muted">Usuarios con gustos parecidos a los tuyos guardaron o cocinaron esto.</p>
+                    </div>
+                </div>
+                <div id="recommendCommunityResults" class="results-grid" aria-live="polite"></div>
+            </section>
+
+            <section id="tab-perfil" class="tab-content">
+                <div class="section-head">
+                    <div>
+                        <h2>Perfil</h2>
+                    </div>
+                </div>
+
+                <div id="profileLoggedOut" class="empty-state" hidden>Inicia sesión para ver tus recetas guardadas y cocinadas.</div>
+
+                <div id="profileLoggedIn" hidden>
+                    <div class="section-head">
+                        <div>
+                            <h3>Guardadas</h3>
+                            <p class="muted">Recetas que marcaste como guardadas.</p>
+                        </div>
+                    </div>
+                    <div id="profileSavedResults" class="results-grid" aria-live="polite"></div>
+
+                    <div class="section-head">
+                        <div>
+                            <h3>Cocinadas</h3>
+                            <p class="muted">Recetas que marcaste como cocinadas.</p>
+                        </div>
+                    </div>
+                    <div id="profileCookedResults" class="results-grid" aria-live="polite"></div>
+                </div>
             </section>
         </main>
 

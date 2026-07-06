@@ -256,6 +256,87 @@ class Neo4jService:
         """
         return await self._ranked_rows(cypher, days=days, limit=max(int(limit), 1))
 
+    async def community_ranking(self, period: str, limit: int, exclude_user_id: str | None = None):
+        driver = await self.connect()
+        if driver is None:
+            return []
+
+        days = {"week": 7, "month": 30, "all": 36500}.get((period or "month").lower(), 30)
+        cypher = """
+        MATCH (u:User)-[rel:VIEWED|SAVED|COOKED]->(r:Recipe)
+        WHERE coalesce(rel.last_at, rel.at) >= datetime() - duration({days: $days})
+          AND ($exclude_user_id IS NULL OR u.id <> $exclude_user_id)
+        WITH r,
+             sum(
+                 CASE type(rel)
+                     WHEN 'VIEWED' THEN 0.5 * coalesce(rel.count, 1)
+                     WHEN 'SAVED' THEN 5.0
+                     WHEN 'COOKED' THEN 8.0
+                     ELSE 0.0
+                 END
+             ) AS ranking,
+             count(DISTINCT u) AS peer_count
+        WHERE ranking > 0
+        RETURN r.id AS id, ranking, peer_count
+        ORDER BY ranking DESC, r.score DESC, r.title ASC
+        LIMIT $limit
+        """
+        return await self._ranked_rows(
+            cypher,
+            days=days,
+            limit=max(int(limit), 1),
+            exclude_user_id=exclude_user_id,
+        )
+
+    async def recommend_by_own_history(self, user_id: str, limit: int = 6):
+        driver = await self.connect()
+        if driver is None or not user_id:
+            return []
+
+        cypher = """
+        MATCH (me:User {id: $user_id})-[:SAVED|COOKED]->(anchor:Recipe)
+        WITH me, collect(DISTINCT anchor) AS anchors
+        WHERE size(anchors) > 0
+        UNWIND anchors AS anchor
+        MATCH (candidate:Recipe)
+        WHERE NOT candidate IN anchors
+          AND NOT EXISTS { MATCH (me)-[:VIEWED|SAVED|COOKED]->(candidate) }
+        OPTIONAL MATCH (anchor)-[:USES]->(ai:Ingredient)<-[:USES]-(candidate)
+        OPTIONAL MATCH (anchor)-[:IN_CATEGORY]->(ac:Category)<-[:IN_CATEGORY]-(candidate)
+        OPTIONAL MATCH (anchor)-[:HAS_DIFFICULTY]->(ad:Difficulty)<-[:HAS_DIFFICULTY]-(candidate)
+        OPTIONAL MATCH (anchor)-[:HAS_TITLE_TERM]->(at:TitleTerm)<-[:HAS_TITLE_TERM]-(candidate)
+        WITH candidate,
+             count(DISTINCT ai) AS shared_ingredients,
+             count(DISTINCT ac) > 0 AS same_category,
+             count(DISTINCT ad) > 0 AS same_difficulty,
+             count(DISTINCT at) AS shared_title_terms
+        WITH candidate,
+             sum(shared_ingredients) AS shared_ingredients,
+             sum(CASE WHEN same_category THEN 1 ELSE 0 END) AS category_matches,
+             sum(CASE WHEN same_difficulty THEN 1 ELSE 0 END) AS difficulty_matches,
+             sum(shared_title_terms) AS shared_title_terms
+        WHERE shared_ingredients > 0 OR category_matches > 0 OR shared_title_terms > 0
+        WITH candidate,
+             shared_ingredients,
+             shared_title_terms,
+             category_matches > 0 AS same_category,
+             difficulty_matches > 0 AS same_difficulty,
+             (shared_ingredients * 2.2) +
+             (shared_title_terms * 1.8) +
+             (category_matches * 2.8) +
+             (difficulty_matches * 0.4) +
+             coalesce(candidate.score, 0.0) * 0.08 AS ranking
+        RETURN candidate.id AS id,
+               ranking,
+               shared_ingredients,
+               shared_title_terms,
+               same_category,
+               same_difficulty
+        ORDER BY ranking DESC, candidate.score DESC, candidate.title ASC
+        LIMIT $limit
+        """
+        return await self._ranked_rows(cypher, user_id=user_id, limit=max(int(limit), 1))
+
     async def recommend_by_content(self, recipe_id: str, limit: int = 6, mode: str = "hybrid"):
         driver = await self.connect()
         if driver is None:

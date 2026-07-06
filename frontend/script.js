@@ -18,15 +18,20 @@ document.addEventListener("DOMContentLoaded", function () {
     var searchBtn = document.getElementById("searchBtn");
     var filterCategory = document.getElementById("filterCategory");
     var filterDifficulty = document.getElementById("filterDifficulty");
-    var recommendationMode = document.getElementById("recommendationMode");
     var pageSizeSelect = document.getElementById("pageSizeSelect");
     var searchResults = document.getElementById("searchResults");
     var searchPagination = document.getElementById("searchPagination");
     var paginationSummary = document.getElementById("paginationSummary");
     var rankingResults = document.getElementById("rankingResults");
-    var recommendResults = document.getElementById("recommendResults");
-    var recipeIdInput = document.getElementById("recipeIdInput");
-    var recommendBtn = document.getElementById("recommendBtn");
+    var recommendSimilarBlock = document.getElementById("recommendSimilarBlock");
+    var recommendSimilarTitle = document.getElementById("recommendSimilarTitle");
+    var recommendSimilarResults = document.getElementById("recommendSimilarResults");
+    var recommendForYouResults = document.getElementById("recommendForYouResults");
+    var recommendCommunityResults = document.getElementById("recommendCommunityResults");
+    var profileLoggedOut = document.getElementById("profileLoggedOut");
+    var profileLoggedIn = document.getElementById("profileLoggedIn");
+    var profileSavedResults = document.getElementById("profileSavedResults");
+    var profileCookedResults = document.getElementById("profileCookedResults");
     var refreshBtn = document.getElementById("refreshBtn");
     var refreshStatus = document.getElementById("refreshStatus");
     var catalogCount = document.getElementById("catalogCount");
@@ -1376,6 +1381,7 @@ document.addEventListener("DOMContentLoaded", function () {
             setAuthStatus("Sesión iniciada como " + (session.user && session.user.name ? session.user.name : "usuario"), "success");
             closeAuthModal();
             setStatusMessage("Sesión iniciada correctamente", "success");
+            refreshAuthDependentTabs();
         } catch (error) {
             setAuthStatus(error.message || "No se pudo iniciar sesión", "error");
         }
@@ -1398,6 +1404,7 @@ document.addEventListener("DOMContentLoaded", function () {
             setAuthStatus("Cuenta creada y sesión activa", "success");
             closeAuthModal();
             setStatusMessage("Cuenta creada correctamente", "success");
+            refreshAuthDependentTabs();
         } catch (error) {
             setAuthStatus(error.message || "No se pudo crear la cuenta", "error");
         }
@@ -1408,6 +1415,17 @@ document.addEventListener("DOMContentLoaded", function () {
         setAuthStatus("Sesión cerrada", "warning");
         closeAuthModal();
         setStatusMessage("Sesión cerrada", "warning");
+        refreshAuthDependentTabs();
+    }
+
+    function refreshAuthDependentTabs() {
+        var activeTab = document.querySelector(".tab-btn.active");
+        var tabName = activeTab ? activeTab.dataset.tab : "";
+        if (tabName === "perfil") {
+            loadProfileTab();
+        } else if (tabName === "recomendaciones") {
+            loadRecommendationsTab();
+        }
     }
 
     function createFallbackImageData(recipe, label) {
@@ -1846,6 +1864,12 @@ document.addEventListener("DOMContentLoaded", function () {
         if (tabName === "ranking") {
             loadRanking();
         }
+        if (tabName === "recomendaciones") {
+            loadRecommendationsTab();
+        }
+        if (tabName === "perfil") {
+            loadProfileTab();
+        }
     }
 
     function updateCatalogCount(total) {
@@ -2118,6 +2142,87 @@ document.addEventListener("DOMContentLoaded", function () {
         renderRecipeGrid(rankingResults, recipes, { rankOffset: 0 });
     }
 
+    async function loadCommunityRecommendations() {
+        recommendCommunityResults.innerHTML = '<div class="loading-state">Cargando lo que otros usuarios recomiendan...</div>';
+
+        if (apiOnline) {
+            try {
+                var response = await fetch(API_BASE + "/recipes/community/month?limit=6", {
+                    headers: authHeaders(),
+                });
+                if (!response.ok) {
+                    throw new Error("community recommendations failed");
+                }
+                var data = await response.json();
+                var liveRecipes = Array.isArray(data.results) ? data.results : [];
+                if (liveRecipes.length) {
+                    liveRecipes.forEach(storeRecipe);
+                    renderRecipeGrid(recommendCommunityResults, liveRecipes);
+                    return;
+                }
+                if (data.source === "neo4j" && currentUserId()) {
+                    recommendCommunityResults.innerHTML = '<div class="empty-state">Todavía nadie más ha visto, guardado o cocinado recetas parecidas a las tuyas.</div>';
+                    return;
+                }
+            } catch (error) {
+                console.warn("Community recommendations sync fallback:", error);
+            }
+        }
+
+        var recipes = rankingLocalCatalog(6);
+        if (!recipes.length) {
+            recommendCommunityResults.innerHTML = '<div class="empty-state">Todavía no hay suficiente actividad de la comunidad.</div>';
+            return;
+        }
+        renderRecipeGrid(recommendCommunityResults, recipes);
+    }
+
+    function loadRecommendationsTab() {
+        getPersonalRecommendations();
+        loadCommunityRecommendations();
+    }
+
+    async function loadProfileTab() {
+        if (!currentUserId()) {
+            profileLoggedOut.hidden = false;
+            profileLoggedIn.hidden = true;
+            return;
+        }
+
+        profileLoggedOut.hidden = true;
+        profileLoggedIn.hidden = false;
+        profileSavedResults.innerHTML = '<div class="loading-state">Cargando tus recetas guardadas...</div>';
+        profileCookedResults.innerHTML = '<div class="loading-state">Cargando tus recetas cocinadas...</div>';
+
+        try {
+            var response = await fetch(API_BASE + "/users/me/library", {
+                headers: authHeaders(),
+            });
+            if (!response.ok) {
+                throw new Error("library failed");
+            }
+            var data = await response.json();
+            var saved = Array.isArray(data.saved) ? data.saved : [];
+            var cooked = Array.isArray(data.cooked) ? data.cooked : [];
+
+            if (!saved.length) {
+                profileSavedResults.innerHTML = '<div class="empty-state">Todavía no has guardado ninguna receta.</div>';
+            } else {
+                renderRecipeGrid(profileSavedResults, saved);
+            }
+
+            if (!cooked.length) {
+                profileCookedResults.innerHTML = '<div class="empty-state">Todavía no has marcado ninguna receta como cocinada.</div>';
+            } else {
+                renderRecipeGrid(profileCookedResults, cooked);
+            }
+        } catch (error) {
+            console.warn("Profile library error:", error);
+            profileSavedResults.innerHTML = '<div class="empty-state">No se pudo cargar tu perfil.</div>';
+            profileCookedResults.innerHTML = '';
+        }
+    }
+
     function getOrCreateUserId() {
         var key = "ph_user_id";
         var existing = window.localStorage.getItem(key);
@@ -2263,12 +2368,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
     async function getPersonalRecommendations() {
         if (!currentUserId()) {
-        setStatusMessage("Inicia sesión para ver recomendaciones personalizadas", "warning");
-            openAuthModal("login");
+            recommendForYouResults.innerHTML = '<div class="empty-state">Inicia sesión para ver recomendaciones para ti.</div>';
             return;
         }
 
-        recommendResults.innerHTML = '<div class="loading-state">Cargando recomendaciones para ti...</div>';
+        recommendForYouResults.innerHTML = '<div class="loading-state">Cargando recomendaciones para ti...</div>';
 
         try {
             var response = await fetch(API_BASE + "/users/me/recommendations?limit=6", {
@@ -2280,23 +2384,25 @@ document.addEventListener("DOMContentLoaded", function () {
             var data = await response.json();
             var recipes = data.results || [];
             if (!recipes.length) {
-                recommendResults.innerHTML = '<div class="empty-state">Aún no hay recomendaciones personalizadas.</div>';
+                recommendForYouResults.innerHTML = '<div class="empty-state">Guarda o marca como cocinada alguna receta para recibir sugerencias parecidas.</div>';
             } else {
-                renderRecipeGrid(recommendResults, recipes);
+                renderRecipeGrid(recommendForYouResults, recipes);
             }
-            setActiveTab("recomendaciones");
         } catch (error) {
             console.warn("Personal recommendation error:", error);
-            recommendResults.innerHTML = '<div class="empty-state">Aún no hay recomendaciones personalizadas.</div>';
+            recommendForYouResults.innerHTML = '<div class="empty-state">Aún no hay recomendaciones personalizadas.</div>';
         }
     }
 
     async function getRecommendations(recipeId) {
         var inputValue = String(recipeId == null ? "" : recipeId).trim();
-        recipeIdInput.value = inputValue;
-        recommendResults.innerHTML = '<div class="loading-state">Cargando recomendaciones...</div>';
-        var mode = normalizeRecommendationMode(recommendationMode ? recommendationMode.value || "hybrid" : "hybrid");
         var anchorRecipe = getRecipeById(inputValue);
+
+        recommendSimilarBlock.hidden = false;
+        recommendSimilarTitle.textContent = anchorRecipe ? "Similares a: " + anchorRecipe.title : "Similares";
+        recommendSimilarResults.innerHTML = '<div class="loading-state">Cargando recomendaciones...</div>';
+
+        var mode = "hybrid";
         var localRecipes = anchorRecipe ? recommendLocalCatalog(anchorRecipe.id, 6, mode) : discoverLocalRecommendations(inputValue, 6, mode);
 
         if (apiOnline) {
@@ -2321,10 +2427,10 @@ document.addEventListener("DOMContentLoaded", function () {
                     recipes = localRecipes;
                 }
                 if (!recipes.length) {
-                    recommendResults.innerHTML = '<div class="empty-state">No recipes matched that recommendation search.</div>';
+                    recommendSimilarResults.innerHTML = '<div class="empty-state">No recipes matched that recommendation search.</div>';
                     setStatusMessage("No encontramos coincidencias para: " + inputValue, "warning");
                 } else {
-                    renderRecipeGrid(recommendResults, recipes);
+                    renderRecipeGrid(recommendSimilarResults, recipes);
                     if (inputValue) {
                     setStatusMessage("Recomendaciones basadas en: " + inputValue, "success");
                     }
@@ -2338,10 +2444,10 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         if (!localRecipes.length) {
-            recommendResults.innerHTML = '<div class="empty-state">No recipes matched that recommendation search.</div>';
+            recommendSimilarResults.innerHTML = '<div class="empty-state">No recipes matched that recommendation search.</div>';
             setStatusMessage("No encontramos coincidencias para: " + inputValue, "warning");
         } else {
-            renderRecipeGrid(recommendResults, localRecipes);
+            renderRecipeGrid(recommendSimilarResults, localRecipes);
             if (inputValue) {
                 setStatusMessage("Recomendaciones basadas en: " + inputValue + " (local)", "warning");
             }
@@ -2468,21 +2574,6 @@ document.addEventListener("DOMContentLoaded", function () {
     if (registerForm) {
         registerForm.addEventListener("submit", submitRegisterForm);
     }
-
-    recommendBtn.addEventListener("click", function () {
-        var recipeId = recipeIdInput.value.trim();
-        if (recipeId) {
-            getRecommendations(recipeId);
-        } else {
-            getPersonalRecommendations();
-        }
-    });
-
-    recipeIdInput.addEventListener("keydown", function (event) {
-        if (event.key === "Enter") {
-            recommendBtn.click();
-        }
-    });
 
     refreshBtn.addEventListener("click", refreshCatalog);
 

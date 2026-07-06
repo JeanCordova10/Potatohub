@@ -604,12 +604,16 @@ async def _record_mongo_interaction(recipe_doc: dict, user: Optional[dict], acti
             already_saved = bool(existing_state and existing_state.get("saved"))
             state_update["$set"]["saved"] = True
             state_update["$set"]["saved_at"] = (existing_state.get("saved_at") if existing_state else None) or now
+            state_update["$setOnInsert"].pop("saved", None)
+            state_update["$setOnInsert"].pop("saved_at", None)
             if not already_saved:
                 recipe_increments["stats.saved"] = 1
         elif action == "cook":
             already_cooked = bool(existing_state and existing_state.get("cooked"))
             state_update["$set"]["cooked"] = True
             state_update["$set"]["cooked_at"] = (existing_state.get("cooked_at") if existing_state else None) or now
+            state_update["$setOnInsert"].pop("cooked", None)
+            state_update["$setOnInsert"].pop("cooked_at", None)
             if not already_cooked:
                 recipe_increments["stats.cooked"] = 1
 
@@ -776,6 +780,51 @@ async def ranking(request: Request, period: str, limit: int = Query(10, ge=1, le
     if ids:
         results = await _fetch_recipes_by_ids(ids)
         return {"period": period, "source": "neo4j", "results": [item.model_dump() for item in results]}
+
+    pipeline = [
+        {
+            "$addFields": {
+                "computed_score": {
+                    "$add": [
+                        {"$multiply": [{"$ifNull": ["$stats.views", 0]}, 0.5]},
+                        {"$multiply": [{"$ifNull": ["$stats.saved", 0]}, 5.0]},
+                        {"$multiply": [{"$ifNull": ["$stats.cooked", 0]}, 8.0]},
+                    ]
+                }
+            }
+        },
+        {"$sort": {"computed_score": -1}},
+        {"$limit": limit},
+    ]
+    docs = await get_recipes().aggregate(pipeline).to_list(length=limit)
+    results = [Recipe(**doc_to_recipe(doc)) for doc in docs]
+    return {"period": period, "source": "mongodb_fallback", "results": [item.model_dump() for item in results]}
+
+
+@router.get("/community/{period}")
+async def community_ranking(request: Request, period: str, limit: int = Query(6, ge=1, le=50)):
+    neo4j_service = getattr(request.app.state, "neo4j_service", None)
+    current_user = await current_user_from_request(request)
+    exclude_user_id = current_user["user_id"] if current_user else None
+
+    if neo4j_service is not None and current_user is not None:
+        peer_rows = await neo4j_service.recommend_for_user(current_user["user_id"], limit=limit)
+        peer_ids = [row["id"] for row in peer_rows]
+        if peer_ids:
+            results = await _fetch_recipes_by_ids(peer_ids)
+            return {"period": period, "source": "neo4j_peers", "results": [item.model_dump() for item in results]}
+
+    if neo4j_service is not None:
+        rows = await neo4j_service.community_ranking(period, limit, exclude_user_id=exclude_user_id)
+        ids = [row["id"] for row in rows]
+        if ids:
+            results = await _fetch_recipes_by_ids(ids)
+            return {"period": period, "source": "neo4j", "results": [item.model_dump() for item in results]}
+        if exclude_user_id:
+            # Neo4j gave a definitive answer excluding the current user; the Mongo
+            # fallback below can't exclude anyone (stats are global counters), so
+            # falling back here would silently reintroduce the user's own activity.
+            return {"period": period, "source": "neo4j", "results": []}
 
     pipeline = [
         {

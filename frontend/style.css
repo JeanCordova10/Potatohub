@@ -371,6 +371,13 @@ a {
     letter-spacing: -0.03em;
 }
 
+.section-head h3 {
+    margin: 0 0 4px;
+    font-family: "Georgia", "Times New Roman", serif;
+    font-size: 1.08rem;
+    letter-spacing: -0.02em;
+}
+
 .muted {
     margin: 0;
     color: var(--muted);
@@ -750,6 +757,12 @@ a {
     box-shadow: var(--shadow-sm);
     text-align: center;
     color: var(--muted);
+}
+
+.loading-state[hidden],
+.empty-state[hidden],
+.error-state[hidden] {
+    display: none !important;
 }
 
 .error-state {
