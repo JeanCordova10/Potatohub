@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import os
 import re
 from datetime import datetime, timezone
 from typing import Any, Iterable
@@ -30,6 +32,7 @@ class Neo4jService:
         self.driver = None
         self._last_error = None
         self._schema_initialized = False
+        self.query_timeout_seconds = max(float(os.getenv("NEO4J_QUERY_TIMEOUT_SECONDS", "8")), 0.1)
 
     async def connect(self):
         if not self.enabled or AsyncGraphDatabase is None:
@@ -780,8 +783,13 @@ class Neo4jService:
         if driver is None:
             return []
         async with driver.session() as session:
-            result = await session.run(cypher, **params)
-            return await result.data()
+            try:
+                result = await asyncio.wait_for(session.run(cypher, **params), timeout=self.query_timeout_seconds)
+                return await asyncio.wait_for(result.data(), timeout=self.query_timeout_seconds)
+            except asyncio.TimeoutError:
+                return []
+            except Exception:
+                return []
 
 
 def _normalize_mode(mode: str) -> str:

@@ -5,19 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PotatoHub</title>
     <link rel="stylesheet" href="/static/style.css?v=20260706h">
-    <script defer src="/static/script.js?v=20260706h"></script>
+    <script defer src="/static/script.js?v=20260706l"></script>
 </head>
 <body>
     <div class="shell">
         <header class="topbar">
             <div class="brand-block">
-                <p class="eyebrow">PotatoHub</p>
                 <h1>PotatoHub</h1>
-                <p class="lede">Explora recetas de papa con búsqueda, ranking y recomendaciones. Si el backend no responde, el catálogo demo sigue activo para probar la interfaz.</p>
-                <div class="source-strip">
-                    <span class="source-pill soft">Cookpad</span>
-                    <span id="catalogModeBadge" class="inline-status idle">Cargando catálogo</span>
-                </div>
+                <p class="lede">Busca recetas de papa por nombre, ingrediente o categor&iacute;a y encuentra opciones para cocinar seg&uacute;n lo que te provoque hoy.</p>
             </div>
             <div class="topbar-actions">
                 <span id="apiStatus" class="status-badge idle">Verificando</span>
@@ -26,7 +21,7 @@
                     <span id="userChip" class="user-chip" hidden></span>
                     <button id="logoutBtn" class="control-btn auth-btn secondary" type="button" hidden>Cerrar sesión</button>
                 </div>
-                <button id="refreshBtn" class="control-btn" type="button">Actualizar catálogo</button>
+                <button id="refreshBtn" class="control-btn" type="button" hidden>Actualizar cat&aacute;logo</button>
             </div>
         </header>
 
@@ -64,7 +59,7 @@
                             <option value="24">24 por página</option>
                         </select>
                     </div>
-                    <div id="refreshStatus" class="inline-status" aria-live="polite"></div>
+                    <div id="refreshStatus" class="inline-status" aria-live="polite" hidden></div>
                 </div>
 
                 <div id="searchResults" class="results-grid" aria-live="polite"></div>
@@ -217,10 +212,6 @@
             </section>
         </div>
 
-        <footer class="footer">
-            <span>Backend local listo</span>
-            <span class="muted">PotatoHub API</span>
-        </footer>
     </div>
 </body>
 </html>

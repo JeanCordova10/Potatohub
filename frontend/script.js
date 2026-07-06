@@ -180,6 +180,16 @@ document.addEventListener("DOMContentLoaded", function () {
         return labels[normalized] || capitalizeText(value);
     }
 
+    function getDifficultySortRank(value) {
+        var normalized = canonicalizeDifficultyValue(value || "");
+        var order = {
+            facil: 0,
+            media: 1,
+            dificil: 2,
+        };
+        return typeof order[normalized] === "number" ? order[normalized] : 99;
+    }
+
     function formatCatalogModeLabel(mode) {
         var normalized = normalizeTextValue(mode || "");
         if (normalized === "live") {
@@ -939,10 +949,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
         var difficulties = Object.keys(difficultyCounts)
             .sort(function (a, b) {
-                var order = { easy: 0, medium: 1, hard: 2 };
-                if (order[a] !== order[b]) {
-                    var rankA = typeof order[a] === "number" ? order[a] : 99;
-                    var rankB = typeof order[b] === "number" ? order[b] : 99;
+                var rankA = getDifficultySortRank(a);
+                var rankB = getDifficultySortRank(b);
+                if (rankA !== rankB) {
                     return rankA - rankB;
                 }
                 return difficultyCounts[b] - difficultyCounts[a] || String(a).localeCompare(String(b));
@@ -999,6 +1008,13 @@ document.addEventListener("DOMContentLoaded", function () {
             difficulties: toOptionList(payload.difficulties, function (item) {
                 item.label = formatDifficultyLabel(item.label || item.value || "");
                 return item;
+            }).sort(function (a, b) {
+                var rankA = getDifficultySortRank(a.value || a.label || "");
+                var rankB = getDifficultySortRank(b.value || b.label || "");
+                if (rankA !== rankB) {
+                    return rankA - rankB;
+                }
+                return String(a.label || a.value || "").localeCompare(String(b.label || b.value || ""));
             }),
             sources: toOptionList(payload.sources, function (item) {
                 return item;
@@ -1827,7 +1843,7 @@ document.addEventListener("DOMContentLoaded", function () {
             setCatalogRecipes(recipes, "live");
             loadFilterOptions();
             state.page = 0;
-            setStatusMessage("Loaded " + recipes.length + " recipes from the live catalog", "success");
+            setStatusMessage("", "");
             doSearch();
 
             if (document.querySelector('[data-tab="ranking"]').classList.contains("active")) {
@@ -1875,7 +1891,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function updateCatalogCount(total) {
         if (catalogCount) {
-            catalogCount.textContent = total + " recipes";
+            catalogCount.textContent = total + " recetas";
         }
     }
 
@@ -1883,6 +1899,15 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!refreshStatus) {
             return;
         }
+        if (!message) {
+            refreshStatus.textContent = "";
+            refreshStatus.className = "inline-status";
+            refreshStatus.hidden = true;
+            refreshStatus.style.display = "none";
+            return;
+        }
+        refreshStatus.hidden = false;
+        refreshStatus.style.display = "inline-flex";
         refreshStatus.textContent = message || "";
         refreshStatus.className = "inline-status" + (kind ? " " + kind : "");
     }
@@ -2099,7 +2124,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 setCatalogMode("live");
                 renderPagination(total);
                 updateCatalogCount(total);
-                setStatusMessage("Mostrando " + total + " recetas del catálogo en vivo", "success");
+                setStatusMessage("", "");
                 return;
             } catch (error) {
                 console.warn("Live search fallback:", error);
@@ -2118,10 +2143,7 @@ document.addEventListener("DOMContentLoaded", function () {
         renderRecipeGrid(searchResults, data.results || []);
         renderPagination(data.total || 0);
         updateCatalogCount(data.total || 0);
-        setStatusMessage(
-            "Mostrando " + (data.total || 0) + " recetas del " + (catalogMode === "live" ? "catálogo en vivo" : "catálogo demo"),
-            catalogMode === "live" ? "success" : "warning"
-        );
+        setStatusMessage("", "");
     }
 
     async function loadRanking() {
@@ -2480,7 +2502,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     async function refreshCatalog() {
         setStatusMessage("Actualizando catálogo...", "loading");
-        refreshBtn.disabled = true;
+        if (refreshBtn) {
+            refreshBtn.disabled = true;
+        }
         try {
             if (apiOnline) {
                 var response = await fetch(API_BASE + "/recipes/refresh", {
@@ -2523,7 +2547,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 "error"
             );
         } finally {
-            refreshBtn.disabled = false;
+            if (refreshBtn) {
+                refreshBtn.disabled = false;
+            }
         }
     }
 
@@ -2598,7 +2624,9 @@ document.addEventListener("DOMContentLoaded", function () {
         registerForm.addEventListener("submit", submitRegisterForm);
     }
 
-    refreshBtn.addEventListener("click", refreshCatalog);
+    if (refreshBtn) {
+        refreshBtn.addEventListener("click", refreshCatalog);
+    }
 
     if (forYouMode) {
         forYouMode.addEventListener("change", function () {
