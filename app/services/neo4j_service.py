@@ -772,6 +772,9 @@ class Neo4jService:
             "CREATE CONSTRAINT category_name IF NOT EXISTS FOR (c:Category) REQUIRE c.name IS UNIQUE",
             "CREATE CONSTRAINT difficulty_name IF NOT EXISTS FOR (d:Difficulty) REQUIRE d.name IS UNIQUE",
             "CREATE CONSTRAINT title_term_name IF NOT EXISTS FOR (t:TitleTerm) REQUIRE t.name IS UNIQUE",
+            "CREATE INDEX viewed_last_at_idx IF NOT EXISTS FOR ()-[r:VIEWED]-() ON (r.last_at)",
+            "CREATE INDEX saved_last_at_idx IF NOT EXISTS FOR ()-[r:SAVED]-() ON (r.last_at)",
+            "CREATE INDEX cooked_last_at_idx IF NOT EXISTS FOR ()-[r:COOKED]-() ON (r.last_at)",
         ]
         async with self.driver.session() as session:
             for statement in statements:
