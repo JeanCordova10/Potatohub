@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from pymongo import MongoClient
 
 from etl.config import HEADERS
+from app.semantic_search import classify_difficulty_by_ingredient_count
 
 load_dotenv()
 
@@ -82,15 +83,16 @@ def enrich(limit: int = 200, source: str = "cookpad_pe"):
         detail = extract_cookpad_detail(recipe["source_url"])
 
         if detail.get("ingredients"):
+            ing_count = len(detail["ingredients"])
             collection.update_one(
                 {"_id": recipe["_id"]},
                 {"$set": {
                     "ingredients":  detail["ingredients"],
                     "instructions": detail["instructions"],
+                    "difficulty":   classify_difficulty_by_ingredient_count(ing_count),
                     "updated_at":   datetime.now(timezone.utc),
                 }}
             )
-            ing_count  = len(detail["ingredients"])
             step_count = len(detail["instructions"])
             print(f"         ✓ {ing_count} ingredientes, {step_count} pasos")
             enriquecidas += 1

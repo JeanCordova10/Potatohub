@@ -285,6 +285,14 @@ def canonicalize_difficulty(value: Any) -> str:
     return DIFFICULTY_ALIASES.get(canonicalize_token(normalized), normalized)
 
 
+def classify_difficulty_by_ingredient_count(count: int) -> str:
+    if count <= 7:
+        return "Facil"
+    if count <= 11:
+        return "Media"
+    return "Dificil"
+
+
 def is_search_token(token: str) -> bool:
     return bool(token) and len(token) > 2 and token not in COMMON_STOPWORDS and not token.isdigit()
 
