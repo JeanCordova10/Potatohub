@@ -28,6 +28,7 @@ document.addEventListener("DOMContentLoaded", function () {
     var recommendSimilarResults = document.getElementById("recommendSimilarResults");
     var recommendForYouResults = document.getElementById("recommendForYouResults");
     var recommendCommunityResults = document.getElementById("recommendCommunityResults");
+    var forYouMode = document.getElementById("forYouMode");
     var profileLoggedOut = document.getElementById("profileLoggedOut");
     var profileLoggedIn = document.getElementById("profileLoggedIn");
     var profileSavedResults = document.getElementById("profileSavedResults");
@@ -1906,6 +1907,12 @@ document.addEventListener("DOMContentLoaded", function () {
         var rankBadge = options.rank ? '<div class="rank-badge">#' + options.rank + "</div>" : "";
         var tone = getRecipeTone(recipe);
         var visual = renderRecipeImage(recipe, "recipe-image", recipe.title || "Receta");
+        var saveButton = options.removeAction === "unsave"
+            ? '<button class="action-btn secondary" type="button" onclick="removeFromProfile(\'' + escapeJs(recipe.id) + '\', \'unsave\')">Quitar de guardadas</button>'
+            : '<button class="action-btn" type="button" onclick="interact(\'' + escapeJs(recipe.id) + '\', \'save\')">Guardar</button>';
+        var cookButton = options.removeAction === "uncook"
+            ? '<button class="action-btn secondary" type="button" onclick="removeFromProfile(\'' + escapeJs(recipe.id) + '\', \'uncook\')">Quitar de cocinadas</button>'
+            : "";
 
         return [
             '<article class="recipe-card" data-id="' + escapeHtml(recipe.id) + '" data-tone="' + escapeHtml(tone) + '">',
@@ -1939,7 +1946,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 : "",
             '<div class="action-row">',
             '<button class="action-btn" type="button" onclick="openRecipe(\'' + escapeJs(recipe.id) + '\')">Ver receta</button>',
-            '<button class="action-btn" type="button" onclick="interact(\'' + escapeJs(recipe.id) + '\', \'save\')">Guardar</button>',
+            saveButton,
+            cookButton,
             '<button class="action-btn secondary" type="button" onclick="getRecommendations(\'' + escapeJs(recipe.id) + '\')">Similares</button>',
             sourceUrl
                 ? '<a class="action-link" href="' + sourceUrl + '" target="_blank" rel="noopener">Fuente</a>'
@@ -1968,6 +1976,9 @@ document.addEventListener("DOMContentLoaded", function () {
             var cardOptions = {};
             if (typeof options.rankOffset === "number") {
                 cardOptions.rank = options.rankOffset + index + 1;
+            }
+            if (options.removeAction) {
+                cardOptions.removeAction = options.removeAction;
             }
             return renderRecipeCard(recipe, cardOptions);
         }).join("");
@@ -2208,19 +2219,24 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!saved.length) {
                 profileSavedResults.innerHTML = '<div class="empty-state">Todavía no has guardado ninguna receta.</div>';
             } else {
-                renderRecipeGrid(profileSavedResults, saved);
+                renderRecipeGrid(profileSavedResults, saved, { removeAction: "unsave" });
             }
 
             if (!cooked.length) {
                 profileCookedResults.innerHTML = '<div class="empty-state">Todavía no has marcado ninguna receta como cocinada.</div>';
             } else {
-                renderRecipeGrid(profileCookedResults, cooked);
+                renderRecipeGrid(profileCookedResults, cooked, { removeAction: "uncook" });
             }
         } catch (error) {
             console.warn("Profile library error:", error);
             profileSavedResults.innerHTML = '<div class="empty-state">No se pudo cargar tu perfil.</div>';
             profileCookedResults.innerHTML = '';
         }
+    }
+
+    async function removeFromProfile(recipeId, action) {
+        await interact(recipeId, action);
+        loadProfileTab();
     }
 
     function getOrCreateUserId() {
@@ -2235,7 +2251,8 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     async function interact(recipeId, action) {
-        if ((action === "save" || action === "cook") && !currentUserId()) {
+        var requiresAuth = action === "save" || action === "cook" || action === "unsave" || action === "uncook";
+        if (requiresAuth && !currentUserId()) {
             setStatusMessage("Inicia sesión para guardar o marcar recetas como cocinadas", "warning");
             openAuthModal("login");
             return null;
@@ -2259,6 +2276,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 recipe.stats.saved += 1;
             } else if (action === "cook") {
                 recipe.stats.cooked += 1;
+            } else if (action === "unsave") {
+                recipe.stats.saved = Math.max(0, recipe.stats.saved - 1);
+            } else if (action === "uncook") {
+                recipe.stats.cooked = Math.max(0, recipe.stats.cooked - 1);
             }
             recipe.score = Math.round(((recipe.stats.saved * 5.0) + (recipe.stats.views * 0.5) + (recipe.stats.cooked * 8.0)) * 100) / 100;
         });
@@ -2373,9 +2394,10 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         recommendForYouResults.innerHTML = '<div class="loading-state">Cargando recomendaciones para ti...</div>';
+        var mode = forYouMode ? forYouMode.value || "hybrid" : "hybrid";
 
         try {
-            var response = await fetch(API_BASE + "/users/me/recommendations?limit=6", {
+            var response = await fetch(API_BASE + "/users/me/recommendations?limit=6&mode=" + encodeURIComponent(mode), {
                 headers: authHeaders(),
             });
             if (!response.ok) {
@@ -2522,6 +2544,7 @@ document.addEventListener("DOMContentLoaded", function () {
     window.interact = interact;
     window.openRecipe = openRecipe;
     window.getRecommendations = getRecommendations;
+    window.removeFromProfile = removeFromProfile;
     window.goToPage = goToPage;
 
     tabs.forEach(function (btn) {
@@ -2576,6 +2599,12 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     refreshBtn.addEventListener("click", refreshCatalog);
+
+    if (forYouMode) {
+        forYouMode.addEventListener("change", function () {
+            getPersonalRecommendations();
+        });
+    }
 
     if (authModal) {
         authModal.addEventListener("click", function (event) {

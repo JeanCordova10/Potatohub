@@ -215,6 +215,14 @@ class Neo4jService:
                     rel.last_at = datetime($occurred_at),
                     rel.source = $source
             """,
+            "unsave": """
+                MATCH (u:User {id: $user_id})-[rel:SAVED]->(r:Recipe {id: $recipe_id})
+                DELETE rel
+            """,
+            "uncook": """
+                MATCH (u:User {id: $user_id})-[rel:COOKED]->(r:Recipe {id: $recipe_id})
+                DELETE rel
+            """,
         }
 
         cypher = cypher_by_action.get(action)
@@ -288,11 +296,12 @@ class Neo4jService:
             exclude_user_id=exclude_user_id,
         )
 
-    async def recommend_by_own_history(self, user_id: str, limit: int = 6):
+    async def recommend_by_own_history(self, user_id: str, limit: int = 6, mode: str = "hybrid"):
         driver = await self.connect()
         if driver is None or not user_id:
             return []
 
+        mode = _normalize_mode(mode)
         cypher = """
         MATCH (me:User {id: $user_id})-[:SAVED|COOKED]->(anchor:Recipe)
         WITH me, collect(DISTINCT anchor) AS anchors
@@ -315,17 +324,42 @@ class Neo4jService:
              sum(CASE WHEN same_category THEN 1 ELSE 0 END) AS category_matches,
              sum(CASE WHEN same_difficulty THEN 1 ELSE 0 END) AS difficulty_matches,
              sum(shared_title_terms) AS shared_title_terms
-        WHERE shared_ingredients > 0 OR category_matches > 0 OR shared_title_terms > 0
         WITH candidate,
              shared_ingredients,
              shared_title_terms,
              category_matches > 0 AS same_category,
              difficulty_matches > 0 AS same_difficulty,
-             (shared_ingredients * 2.2) +
-             (shared_title_terms * 1.8) +
-             (category_matches * 2.8) +
-             (difficulty_matches * 0.4) +
-             coalesce(candidate.score, 0.0) * 0.08 AS ranking
+             category_matches,
+             difficulty_matches,
+             CASE $mode
+                 WHEN 'ingredients' THEN (shared_ingredients * 3.0) +
+                     (shared_title_terms * 0.55) +
+                     CASE WHEN category_matches > 0 THEN 0.9 ELSE 0.0 END +
+                     CASE WHEN difficulty_matches > 0 THEN 0.2 ELSE 0.0 END
+                 WHEN 'category' THEN CASE WHEN category_matches > 0 THEN 4.5 ELSE 0.0 END +
+                     (shared_ingredients * 1.2) +
+                     (shared_title_terms * 1.0) +
+                     CASE WHEN difficulty_matches > 0 THEN 0.4 ELSE 0.0 END
+                 WHEN 'title' THEN (shared_title_terms * 3.5) +
+                     (shared_ingredients * 1.0) +
+                     CASE WHEN category_matches > 0 THEN 1.5 ELSE 0.0 END +
+                     CASE WHEN difficulty_matches > 0 THEN 0.2 ELSE 0.0 END
+                 WHEN 'difficulty' THEN CASE WHEN difficulty_matches > 0 THEN 4.5 ELSE 0.0 END +
+                     (shared_ingredients * 0.8) +
+                     (shared_title_terms * 0.6) +
+                     CASE WHEN category_matches > 0 THEN 0.6 ELSE 0.0 END
+                 ELSE (shared_ingredients * 2.2) +
+                     (shared_title_terms * 1.8) +
+                     (category_matches * 2.8) +
+                     (difficulty_matches * 0.4)
+             END + coalesce(candidate.score, 0.0) * 0.08 AS ranking
+        WHERE CASE $mode
+            WHEN 'ingredients' THEN shared_ingredients > 0
+            WHEN 'category' THEN category_matches > 0
+            WHEN 'title' THEN shared_title_terms > 0
+            WHEN 'difficulty' THEN difficulty_matches > 0
+            ELSE shared_ingredients > 0 OR category_matches > 0 OR shared_title_terms > 0
+        END
         RETURN candidate.id AS id,
                ranking,
                shared_ingredients,
@@ -335,7 +369,7 @@ class Neo4jService:
         ORDER BY ranking DESC, candidate.score DESC, candidate.title ASC
         LIMIT $limit
         """
-        return await self._ranked_rows(cypher, user_id=user_id, limit=max(int(limit), 1))
+        return await self._ranked_rows(cypher, user_id=user_id, mode=mode, limit=max(int(limit), 1))
 
     async def recommend_by_content(self, recipe_id: str, limit: int = 6, mode: str = "hybrid"):
         driver = await self.connect()
@@ -754,7 +788,7 @@ def _normalize_mode(mode: str) -> str:
     normalized = (mode or "hybrid").strip().lower()
     if normalized == "type":
         return "category"
-    if normalized not in {"hybrid", "ingredients", "category", "title"}:
+    if normalized not in {"hybrid", "ingredients", "category", "title", "difficulty"}:
         return "hybrid"
     return normalized
 

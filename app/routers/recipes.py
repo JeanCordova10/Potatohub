@@ -616,6 +616,22 @@ async def _record_mongo_interaction(recipe_doc: dict, user: Optional[dict], acti
             state_update["$setOnInsert"].pop("cooked_at", None)
             if not already_cooked:
                 recipe_increments["stats.cooked"] = 1
+        elif action == "unsave":
+            was_saved = bool(existing_state and existing_state.get("saved"))
+            state_update["$set"]["saved"] = False
+            state_update["$set"]["saved_at"] = None
+            state_update["$setOnInsert"].pop("saved", None)
+            state_update["$setOnInsert"].pop("saved_at", None)
+            if was_saved:
+                recipe_increments["stats.saved"] = -1
+        elif action == "uncook":
+            was_cooked = bool(existing_state and existing_state.get("cooked"))
+            state_update["$set"]["cooked"] = False
+            state_update["$set"]["cooked_at"] = None
+            state_update["$setOnInsert"].pop("cooked", None)
+            state_update["$setOnInsert"].pop("cooked_at", None)
+            if was_cooked:
+                recipe_increments["stats.cooked"] = -1
 
         await states.update_one(state_filter, state_update, upsert=True)
         recipe_update = {"$set": {"updated_at": now}}
@@ -923,8 +939,11 @@ async def get_recipe(request: Request, recipe_id: str):
 @limiter.limit("30/minute")
 async def interact(request: Request, recipe_id: str, payload: InteractionRequest):
     action = (payload.action or "").strip().lower()
-    if action not in {"view", "save", "cook"}:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="action must be 'view', 'save' or 'cook'")
+    if action not in {"view", "save", "cook", "unsave", "uncook"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="action must be 'view', 'save', 'cook', 'unsave' or 'uncook'",
+        )
 
     recipe_doc = await get_recipes().find_one({"_id": recipe_id})
     if not recipe_doc:

@@ -9,6 +9,13 @@ from app.models import Recipe, UserLibraryResponse, UserRecommendationsResponse
 router = APIRouter()
 
 
+def _normalize_mode(mode: str) -> str:
+    normalized = (mode or "hybrid").strip().lower()
+    if normalized not in {"hybrid", "ingredients", "category", "title", "difficulty"}:
+        return "hybrid"
+    return normalized
+
+
 @router.get("/me/library", response_model=UserLibraryResponse)
 async def my_library(request: Request):
     user = await require_current_user(request)
@@ -40,13 +47,15 @@ async def my_library(request: Request):
 async def my_recommendations(
     request: Request,
     limit: int = Query(6, ge=1, le=24),
+    mode: str = Query("hybrid", pattern="^(hybrid|ingredients|category|title|difficulty)$"),
 ):
     user = await require_current_user(request)
     neo4j_service = getattr(request.app.state, "neo4j_service", None)
+    mode = _normalize_mode(mode)
 
     rows = []
     if neo4j_service is not None:
-        rows = await neo4j_service.recommend_by_own_history(user["user_id"], limit=limit)
+        rows = await neo4j_service.recommend_by_own_history(user["user_id"], limit=limit, mode=mode)
 
     if rows:
         recipe_ids = [row["id"] for row in rows]
@@ -84,19 +93,35 @@ async def my_recommendations(
     )
     categories = sorted({doc["category_canonical"] for doc in history_docs if doc.get("category_canonical")})
     ingredient_terms = sorted({term for doc in history_docs for term in (doc.get("ingredient_terms") or [])})
+    title_terms = sorted({term for doc in history_docs for term in (doc.get("title_terms") or [])})
+    difficulty_counts: dict[str, int] = {}
+    for doc in history_docs:
+        key = doc.get("difficulty_canonical")
+        if key:
+            difficulty_counts[key] = difficulty_counts.get(key, 0) + 1
+    primary_difficulty = max(difficulty_counts, key=difficulty_counts.get) if difficulty_counts else ""
 
     query = {"_id": {"$nin": seen_ids}}
-    clauses = []
-    if ingredient_terms:
-        clauses.append({"ingredient_terms": {"$in": ingredient_terms}})
-    if categories:
-        clauses.append({"category_canonical": {"$in": categories}})
-    if clauses:
-        query["$or"] = clauses
+    if mode == "ingredients" and ingredient_terms:
+        query["ingredient_terms"] = {"$in": ingredient_terms}
+    elif mode == "category" and categories:
+        query["category_canonical"] = {"$in": categories}
+    elif mode == "title" and title_terms:
+        query["title_terms"] = {"$in": title_terms}
+    elif mode == "difficulty" and primary_difficulty:
+        query["difficulty_canonical"] = primary_difficulty
+    else:
+        clauses = []
+        if ingredient_terms:
+            clauses.append({"ingredient_terms": {"$in": ingredient_terms}})
+        if categories:
+            clauses.append({"category_canonical": {"$in": categories}})
+        if clauses:
+            query["$or"] = clauses
 
     docs = await database.get_recipes().find(query).limit(limit).to_list(length=limit)
     reason = "Sugerencia basada en lo que ya guardaste o cocinaste."
-    if not docs and clauses:
+    if not docs and len(query) > 1:
         docs = await database.get_recipes().find({"_id": {"$nin": seen_ids}}).limit(limit).to_list(length=limit)
         reason = "Sugerencia para que sigas explorando el catalogo."
 

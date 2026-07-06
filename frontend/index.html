@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PotatoHub</title>
-    <link rel="stylesheet" href="/static/style.css?v=20260706e">
-    <script defer src="/static/script.js?v=20260706e"></script>
+    <link rel="stylesheet" href="/static/style.css?v=20260706h">
+    <script defer src="/static/script.js?v=20260706h"></script>
 </head>
 <body>
     <div class="shell">
@@ -101,6 +101,15 @@
                     <div>
                         <h3>Para ti</h3>
                         <p class="muted">Recetas parecidas a las que ya guardaste o cocinaste.</p>
+                    </div>
+                    <div class="filters">
+                        <select id="forYouMode" aria-label="Priorizar en Para ti">
+                            <option value="hybrid">Combinado</option>
+                            <option value="ingredients">Ingredientes</option>
+                            <option value="category">Categoría</option>
+                            <option value="title">Título</option>
+                            <option value="difficulty">Dificultad</option>
+                        </select>
                     </div>
                 </div>
                 <div id="recommendForYouResults" class="results-grid" aria-live="polite"></div>
