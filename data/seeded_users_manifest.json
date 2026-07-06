@@ -1,0 +1,1689 @@
+{
+  "seed_source": "seed_v1",
+  "seed": 20260706,
+  "password_hint": "potato123",
+  "users": [
+    {
+      "email": "user001@potatohub.local",
+      "password": "potato123",
+      "name": "Luis Mendoza",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user002@potatohub.local",
+      "password": "potato123",
+      "name": "Carmen Silva",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user003@potatohub.local",
+      "password": "potato123",
+      "name": "Diego Flores",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user004@potatohub.local",
+      "password": "potato123",
+      "name": "Valeria Morales",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user005@potatohub.local",
+      "password": "potato123",
+      "name": "Mateo Romero",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user006@potatohub.local",
+      "password": "potato123",
+      "name": "Lucia Campos",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user007@potatohub.local",
+      "password": "potato123",
+      "name": "Andres Garcia",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user008@potatohub.local",
+      "password": "potato123",
+      "name": "Sofia Paredes",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user009@potatohub.local",
+      "password": "potato123",
+      "name": "Jose Castro",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user010@potatohub.local",
+      "password": "potato123",
+      "name": "Camila Navarro",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user011@potatohub.local",
+      "password": "potato123",
+      "name": "Javier Diaz",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user012@potatohub.local",
+      "password": "potato123",
+      "name": "Daniela Herrera",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user013@potatohub.local",
+      "password": "potato123",
+      "name": "Rafael Vargas",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user014@potatohub.local",
+      "password": "potato123",
+      "name": "Mariana Torres",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user015@potatohub.local",
+      "password": "potato123",
+      "name": "Tomas Rojas",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user016@potatohub.local",
+      "password": "potato123",
+      "name": "Gabriela Vega",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user017@potatohub.local",
+      "password": "potato123",
+      "name": "Nicolas Suarez",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user018@potatohub.local",
+      "password": "potato123",
+      "name": "Elena Salazar",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user019@potatohub.local",
+      "password": "potato123",
+      "name": "Hector Quispe",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user020@potatohub.local",
+      "password": "potato123",
+      "name": "Paula Lopez",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user021@potatohub.local",
+      "password": "potato123",
+      "name": "Martin Mendoza",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user022@potatohub.local",
+      "password": "potato123",
+      "name": "Natalia Silva",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user023@potatohub.local",
+      "password": "potato123",
+      "name": "Bruno Flores",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user024@potatohub.local",
+      "password": "potato123",
+      "name": "Ariana Morales",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user025@potatohub.local",
+      "password": "potato123",
+      "name": "Sebastian Romero",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user026@potatohub.local",
+      "password": "potato123",
+      "name": "Renata Campos",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user027@potatohub.local",
+      "password": "potato123",
+      "name": "Alvaro Garcia",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user028@potatohub.local",
+      "password": "potato123",
+      "name": "Claudia Paredes",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user029@potatohub.local",
+      "password": "potato123",
+      "name": "Fernando Castro",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user030@potatohub.local",
+      "password": "potato123",
+      "name": "Ana Navarro",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user031@potatohub.local",
+      "password": "potato123",
+      "name": "Luis Diaz",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user032@potatohub.local",
+      "password": "potato123",
+      "name": "Carmen Herrera",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user033@potatohub.local",
+      "password": "potato123",
+      "name": "Diego Vargas",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user034@potatohub.local",
+      "password": "potato123",
+      "name": "Valeria Torres",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user035@potatohub.local",
+      "password": "potato123",
+      "name": "Mateo Rojas",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user036@potatohub.local",
+      "password": "potato123",
+      "name": "Lucia Vega",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user037@potatohub.local",
+      "password": "potato123",
+      "name": "Andres Suarez",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user038@potatohub.local",
+      "password": "potato123",
+      "name": "Sofia Salazar",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user039@potatohub.local",
+      "password": "potato123",
+      "name": "Jose Quispe",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user040@potatohub.local",
+      "password": "potato123",
+      "name": "Camila Lopez",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user041@potatohub.local",
+      "password": "potato123",
+      "name": "Javier Mendoza",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user042@potatohub.local",
+      "password": "potato123",
+      "name": "Daniela Silva",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user043@potatohub.local",
+      "password": "potato123",
+      "name": "Rafael Flores",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user044@potatohub.local",
+      "password": "potato123",
+      "name": "Mariana Morales",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user045@potatohub.local",
+      "password": "potato123",
+      "name": "Tomas Romero",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user046@potatohub.local",
+      "password": "potato123",
+      "name": "Gabriela Campos",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user047@potatohub.local",
+      "password": "potato123",
+      "name": "Nicolas Garcia",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user048@potatohub.local",
+      "password": "potato123",
+      "name": "Elena Paredes",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user049@potatohub.local",
+      "password": "potato123",
+      "name": "Hector Castro",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user050@potatohub.local",
+      "password": "potato123",
+      "name": "Paula Navarro",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user051@potatohub.local",
+      "password": "potato123",
+      "name": "Martin Diaz",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user052@potatohub.local",
+      "password": "potato123",
+      "name": "Natalia Herrera",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user053@potatohub.local",
+      "password": "potato123",
+      "name": "Bruno Vargas",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user054@potatohub.local",
+      "password": "potato123",
+      "name": "Ariana Torres",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user055@potatohub.local",
+      "password": "potato123",
+      "name": "Sebastian Rojas",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user056@potatohub.local",
+      "password": "potato123",
+      "name": "Renata Vega",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user057@potatohub.local",
+      "password": "potato123",
+      "name": "Alvaro Suarez",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user058@potatohub.local",
+      "password": "potato123",
+      "name": "Claudia Salazar",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user059@potatohub.local",
+      "password": "potato123",
+      "name": "Fernando Quispe",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user060@potatohub.local",
+      "password": "potato123",
+      "name": "Ana Lopez",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user061@potatohub.local",
+      "password": "potato123",
+      "name": "Luis Mendoza",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user062@potatohub.local",
+      "password": "potato123",
+      "name": "Carmen Silva",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user063@potatohub.local",
+      "password": "potato123",
+      "name": "Diego Flores",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user064@potatohub.local",
+      "password": "potato123",
+      "name": "Valeria Morales",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user065@potatohub.local",
+      "password": "potato123",
+      "name": "Mateo Romero",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user066@potatohub.local",
+      "password": "potato123",
+      "name": "Lucia Campos",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user067@potatohub.local",
+      "password": "potato123",
+      "name": "Andres Garcia",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user068@potatohub.local",
+      "password": "potato123",
+      "name": "Sofia Paredes",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user069@potatohub.local",
+      "password": "potato123",
+      "name": "Jose Castro",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user070@potatohub.local",
+      "password": "potato123",
+      "name": "Camila Navarro",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user071@potatohub.local",
+      "password": "potato123",
+      "name": "Javier Diaz",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user072@potatohub.local",
+      "password": "potato123",
+      "name": "Daniela Herrera",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user073@potatohub.local",
+      "password": "potato123",
+      "name": "Rafael Vargas",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user074@potatohub.local",
+      "password": "potato123",
+      "name": "Mariana Torres",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user075@potatohub.local",
+      "password": "potato123",
+      "name": "Tomas Rojas",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user076@potatohub.local",
+      "password": "potato123",
+      "name": "Gabriela Vega",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user077@potatohub.local",
+      "password": "potato123",
+      "name": "Nicolas Suarez",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user078@potatohub.local",
+      "password": "potato123",
+      "name": "Elena Salazar",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user079@potatohub.local",
+      "password": "potato123",
+      "name": "Hector Quispe",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user080@potatohub.local",
+      "password": "potato123",
+      "name": "Paula Lopez",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user081@potatohub.local",
+      "password": "potato123",
+      "name": "Martin Mendoza",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user082@potatohub.local",
+      "password": "potato123",
+      "name": "Natalia Silva",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user083@potatohub.local",
+      "password": "potato123",
+      "name": "Bruno Flores",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user084@potatohub.local",
+      "password": "potato123",
+      "name": "Ariana Morales",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user085@potatohub.local",
+      "password": "potato123",
+      "name": "Sebastian Romero",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user086@potatohub.local",
+      "password": "potato123",
+      "name": "Renata Campos",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user087@potatohub.local",
+      "password": "potato123",
+      "name": "Alvaro Garcia",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user088@potatohub.local",
+      "password": "potato123",
+      "name": "Claudia Paredes",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user089@potatohub.local",
+      "password": "potato123",
+      "name": "Fernando Castro",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user090@potatohub.local",
+      "password": "potato123",
+      "name": "Ana Navarro",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user091@potatohub.local",
+      "password": "potato123",
+      "name": "Luis Diaz",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user092@potatohub.local",
+      "password": "potato123",
+      "name": "Carmen Herrera",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user093@potatohub.local",
+      "password": "potato123",
+      "name": "Diego Vargas",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user094@potatohub.local",
+      "password": "potato123",
+      "name": "Valeria Torres",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user095@potatohub.local",
+      "password": "potato123",
+      "name": "Mateo Rojas",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user096@potatohub.local",
+      "password": "potato123",
+      "name": "Lucia Vega",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user097@potatohub.local",
+      "password": "potato123",
+      "name": "Andres Suarez",
+      "persona": "crispy-lover",
+      "preferred_categories": [
+        "frita",
+        "horneada",
+        "rellena",
+        "general"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user098@potatohub.local",
+      "password": "potato123",
+      "name": "Sofia Salazar",
+      "persona": "traditional-peru",
+      "preferred_categories": [
+        "causa",
+        "ocopa",
+        "chuno",
+        "guiso"
+      ],
+      "difficulty": "medium",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user099@potatohub.local",
+      "password": "potato123",
+      "name": "Jose Quispe",
+      "persona": "adventurous-cook",
+      "preferred_categories": [
+        "rellena",
+        "horneada",
+        "causa",
+        "frita"
+      ],
+      "difficulty": "hard",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    },
+    {
+      "email": "user100@potatohub.local",
+      "password": "potato123",
+      "name": "Camila Lopez",
+      "persona": "home-comfort",
+      "preferred_categories": [
+        "pure",
+        "guiso",
+        "sopa",
+        "general"
+      ],
+      "difficulty": "easy",
+      "saved_count": 15,
+      "cooked_count": 5,
+      "viewed_count": 25
+    }
+  ],
+  "sample_credentials": [
+    {
+      "email": "user001@potatohub.local",
+      "password": "potato123"
+    },
+    {
+      "email": "user002@potatohub.local",
+      "password": "potato123"
+    },
+    {
+      "email": "user003@potatohub.local",
+      "password": "potato123"
+    },
+    {
+      "email": "user004@potatohub.local",
+      "password": "potato123"
+    },
+    {
+      "email": "user005@potatohub.local",
+      "password": "potato123"
+    },
+    {
+      "email": "user006@potatohub.local",
+      "password": "potato123"
+    },
+    {
+      "email": "user007@potatohub.local",
+      "password": "potato123"
+    },
+    {
+      "email": "user008@potatohub.local",
+      "password": "potato123"
+    },
+    {
+      "email": "user009@potatohub.local",
+      "password": "potato123"
+    },
+    {
+      "email": "user010@potatohub.local",
+      "password": "potato123"
+    },
+    {
+      "email": "user011@potatohub.local",
+      "password": "potato123"
+    },
+    {
+      "email": "user012@potatohub.local",
+      "password": "potato123"
+    },
+    {
+      "email": "user013@potatohub.local",
+      "password": "potato123"
+    },
+    {
+      "email": "user014@potatohub.local",
+      "password": "potato123"
+    },
+    {
+      "email": "user015@potatohub.local",
+      "password": "potato123"
+    },
+    {
+      "email": "user016@potatohub.local",
+      "password": "potato123"
+    },
+    {
+      "email": "user017@potatohub.local",
+      "password": "potato123"
+    },
+    {
+      "email": "user018@potatohub.local",
+      "password": "potato123"
+    },
+    {
+      "email": "user019@potatohub.local",
+      "password": "potato123"
+    },
+    {
+      "email": "user020@potatohub.local",
+      "password": "potato123"
+    }
+  ]
+}

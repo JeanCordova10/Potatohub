@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import random
+import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -20,8 +21,12 @@ BASE_DIR = Path(__file__).resolve().parents[1] if "__file__" in globals() else P
 SEED_SOURCE = "seed_v1"
 DEFAULT_USER_COUNT = 100
 DEFAULT_RANDOM_SEED = 20260704
+DEFAULT_SAVED_PER_USER = 15
+DEFAULT_COOKED_PER_USER = 5
+DEFAULT_EXTRA_VIEWED_PER_USER = 10
 DEFAULT_MONGO_LOCAL_URI = "mongodb://localhost:27017/?directConnection=true"
 DEFAULT_NEO4J_LOCAL_URI = "bolt://localhost:7687"
+SEED_LOGIN_PASSWORD = "potato123"
 
 FIRST_NAMES = [
     "Ana", "Luis", "Carmen", "Diego", "Valeria", "Mateo", "Lucia", "Andres",
@@ -39,7 +44,7 @@ LAST_NAMES = [
 PERSONA_ARCHETYPES = [
     {
         "slug": "home-comfort",
-        "categories": ["PURE", "GUISO", "SOPA", "GENERAL"],
+        "categories": ["pure", "guiso", "sopa", "general"],
         "experience": "beginner",
         "difficulty": "easy",
         "saved_range": (5, 10),
@@ -48,7 +53,7 @@ PERSONA_ARCHETYPES = [
     },
     {
         "slug": "crispy-lover",
-        "categories": ["FRITA", "HORNEADA", "RELLENA", "GENERAL"],
+        "categories": ["frita", "horneada", "rellena", "general"],
         "experience": "intermediate",
         "difficulty": "medium",
         "saved_range": (6, 11),
@@ -57,7 +62,7 @@ PERSONA_ARCHETYPES = [
     },
     {
         "slug": "traditional-peru",
-        "categories": ["CAUSA", "OCOPA", "CHUÑO", "GUISO"],
+        "categories": ["causa", "ocopa", "chuno", "guiso"],
         "experience": "intermediate",
         "difficulty": "medium",
         "saved_range": (6, 12),
@@ -66,7 +71,7 @@ PERSONA_ARCHETYPES = [
     },
     {
         "slug": "adventurous-cook",
-        "categories": ["RELLENA", "HORNEADA", "CAUSA", "FRITA"],
+        "categories": ["rellena", "horneada", "causa", "frita"],
         "experience": "advanced",
         "difficulty": "hard",
         "saved_range": (7, 14),
@@ -86,8 +91,42 @@ class RecipeRecord:
     source_url: str
 
 
+@dataclass(frozen=True)
+class SeedTargets:
+    saved_per_user: int
+    cooked_per_user: int
+    extra_viewed_per_user: int
+
+
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def normalize_key(value: str) -> str:
+    text = str(value or "").strip().lower()
+    if not text:
+        return ""
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(char for char in text if not unicodedata.combining(char))
+    return " ".join(text.split())
+
+
+def normalize_difficulty(value: str) -> str:
+    aliases = {
+        "facil": "easy",
+        "fácil": "easy",
+        "easy": "easy",
+        "beginner": "easy",
+        "media": "medium",
+        "medium": "medium",
+        "intermediate": "medium",
+        "dificil": "hard",
+        "difícil": "hard",
+        "hard": "hard",
+        "advanced": "hard",
+    }
+    normalized = normalize_key(value)
+    return aliases.get(normalized, normalized)
 
 
 def running_in_docker() -> bool:
@@ -137,8 +176,8 @@ def load_recipes_from_mongo(db) -> list[RecipeRecord]:
             RecipeRecord(
                 recipe_id=str(doc["_id"]),
                 title=str(doc.get("title") or "Untitled recipe"),
-                category=str(doc.get("category_potato") or "GENERAL"),
-                difficulty=str(doc.get("difficulty") or ""),
+                category=normalize_key(doc.get("category_potato") or "general") or "general",
+                difficulty=normalize_difficulty(doc.get("difficulty") or ""),
                 source_name=str(doc.get("source") or "cookpad_pe"),
                 source_url=str(doc.get("source_url") or ""),
             )
@@ -155,8 +194,8 @@ def load_recipes_from_json(path: Path) -> list[RecipeRecord]:
             RecipeRecord(
                 recipe_id=str(item.get("id") or item.get("_id")),
                 title=str(item.get("title") or "Untitled recipe"),
-                category=str(item.get("category") or item.get("category_potato") or "GENERAL"),
-                difficulty=str(item.get("difficulty") or ""),
+                category=normalize_key(item.get("category") or item.get("category_potato") or "general") or "general",
+                difficulty=normalize_difficulty(item.get("difficulty") or ""),
                 source_name=str(item.get("source_name") or item.get("source") or "demo"),
                 source_url=str(item.get("source_url") or ""),
             )
@@ -200,6 +239,125 @@ def choose_weighted_recipes(
         seen.add(recipe.recipe_id)
 
     return chosen
+
+
+def shuffled_copy(rng: random.Random, recipes: list[RecipeRecord]) -> list[RecipeRecord]:
+    items = recipes[:]
+    rng.shuffle(items)
+    return items
+
+
+def take_unique_recipes(
+    rng: random.Random,
+    pool: list[RecipeRecord],
+    amount: int,
+    seen: set[str],
+) -> list[RecipeRecord]:
+    chosen: list[RecipeRecord] = []
+    for recipe in shuffled_copy(rng, pool):
+        if recipe.recipe_id in seen:
+            continue
+        chosen.append(recipe)
+        seen.add(recipe.recipe_id)
+        if len(chosen) >= amount:
+            break
+    return chosen
+
+
+def build_recipe_overlap_pools(
+    rng: random.Random,
+    all_recipes: list[RecipeRecord],
+    recipes_by_category: dict[str, list[RecipeRecord]],
+) -> dict[str, dict[str, list[RecipeRecord]]]:
+    shared_pools: dict[str, dict[str, list[RecipeRecord]]] = {}
+    for index, persona in enumerate(PERSONA_ARCHETYPES):
+        neighbor = PERSONA_ARCHETYPES[(index + 1) % len(PERSONA_ARCHETYPES)]
+        bridge_categories = list(dict.fromkeys(persona["categories"] + neighbor["categories"]))
+        shared_pools[persona["slug"]] = {
+            "saved": choose_weighted_recipes(rng, persona["categories"], recipes_by_category, all_recipes, 40),
+            "cooked": choose_weighted_recipes(rng, persona["categories"], recipes_by_category, all_recipes, 18),
+            "viewed": choose_weighted_recipes(rng, persona["categories"], recipes_by_category, all_recipes, 80),
+            "bridge": choose_weighted_recipes(rng, bridge_categories, recipes_by_category, all_recipes, 28),
+        }
+    return shared_pools
+
+
+def select_saved_recipes(
+    rng: random.Random,
+    preferred_categories: list[str],
+    recipes_by_category: dict[str, list[RecipeRecord]],
+    all_recipes: list[RecipeRecord],
+    shared_pool: dict[str, list[RecipeRecord]],
+    total: int,
+) -> list[RecipeRecord]:
+    seen: set[str] = set()
+    chosen: list[RecipeRecord] = []
+    shared_target = min(total, max(int(total * 0.6), 8))
+    bridge_target = min(max(total - shared_target, 0), max(int(total * 0.2), 3))
+    discovery_target = max(total - shared_target - bridge_target, 0)
+
+    chosen.extend(take_unique_recipes(rng, shared_pool["saved"], shared_target, seen))
+    chosen.extend(take_unique_recipes(rng, shared_pool["bridge"], bridge_target, seen))
+    chosen.extend(
+        take_unique_recipes(
+            rng,
+            choose_weighted_recipes(rng, preferred_categories, recipes_by_category, all_recipes, max(total * 3, 24)),
+            discovery_target,
+            seen,
+        )
+    )
+    if len(chosen) < total:
+        chosen.extend(take_unique_recipes(rng, all_recipes, total - len(chosen), seen))
+    return chosen[:total]
+
+
+def select_cooked_recipes(
+    rng: random.Random,
+    saved_recipes: list[RecipeRecord],
+    cooked_pool: list[RecipeRecord],
+    total: int,
+) -> list[RecipeRecord]:
+    seen: set[str] = set()
+    saved_ids = {recipe.recipe_id for recipe in saved_recipes}
+    matching_pool = [recipe for recipe in cooked_pool if recipe.recipe_id in saved_ids]
+    chosen = take_unique_recipes(rng, matching_pool, min(max(total - 2, 2), total), seen)
+    if len(chosen) < total:
+        chosen.extend(take_unique_recipes(rng, saved_recipes, total - len(chosen), seen))
+    return chosen[:total]
+
+
+def select_viewed_recipes(
+    rng: random.Random,
+    saved_recipes: list[RecipeRecord],
+    preferred_categories: list[str],
+    recipes_by_category: dict[str, list[RecipeRecord]],
+    all_recipes: list[RecipeRecord],
+    shared_pool: dict[str, list[RecipeRecord]],
+    total: int,
+) -> list[RecipeRecord]:
+    seen = {recipe.recipe_id for recipe in saved_recipes}
+    chosen = list(saved_recipes)
+    remaining = max(total - len(chosen), 0)
+    if remaining <= 0:
+        return chosen[:total]
+
+    from_shared = min(remaining, max(int(remaining * 0.6), 4))
+    from_bridge = min(max(remaining - from_shared, 0), max(int(remaining * 0.2), 2))
+    from_discovery = max(remaining - from_shared - from_bridge, 0)
+
+    chosen.extend(take_unique_recipes(rng, shared_pool["viewed"], from_shared, seen))
+    chosen.extend(take_unique_recipes(rng, shared_pool["bridge"], from_bridge, seen))
+    chosen.extend(
+        take_unique_recipes(
+            rng,
+            choose_weighted_recipes(rng, preferred_categories, recipes_by_category, all_recipes, max(total * 3, 24)),
+            from_discovery,
+            seen,
+        )
+    )
+    if len(chosen) < total:
+        chosen.extend(take_unique_recipes(rng, all_recipes, total - len(chosen), seen))
+    return chosen[:total]
 
 
 def build_user_profile(index: int, rng: random.Random, categories: list[str]) -> dict:
@@ -247,25 +405,40 @@ def build_user_profile(index: int, rng: random.Random, categories: list[str]) ->
 def build_user_state_documents(
     user: dict,
     rng: random.Random,
+    targets: SeedTargets,
     all_recipes: list[RecipeRecord],
     recipes_by_category: dict[str, list[RecipeRecord]],
-) -> tuple[list[dict], list[dict], dict[str, int], dict[str, int]]:
+    shared_pools: dict[str, dict[str, list[RecipeRecord]]],
+) -> tuple[list[dict], list[dict], dict[str, int], dict[str, int], dict[str, int]]:
     preferred_categories = user["preferences"]["preferred_categories"]
-    persona = next(item for item in PERSONA_ARCHETYPES if item["slug"] == user["seed_persona"])
+    shared_pool = shared_pools[user["seed_persona"]]
+    saved_total = targets.saved_per_user
+    cooked_total = targets.cooked_per_user
+    view_total = max(saved_total + targets.extra_viewed_per_user, saved_total)
 
-    view_total = rng.randint(*persona["view_range"])
-    saved_total = rng.randint(*persona["saved_range"])
-    cooked_total = rng.randint(*persona["cooked_range"])
-
-    viewed_recipes = choose_weighted_recipes(
+    saved_recipes = select_saved_recipes(
         rng,
         preferred_categories,
         recipes_by_category,
         all_recipes,
+        shared_pool,
+        saved_total,
+    )
+    cooked_recipes = select_cooked_recipes(
+        rng,
+        saved_recipes,
+        shared_pool["cooked"],
+        cooked_total,
+    )
+    viewed_recipes = select_viewed_recipes(
+        rng,
+        saved_recipes,
+        preferred_categories,
+        recipes_by_category,
+        all_recipes,
+        shared_pool,
         view_total,
     )
-    saved_recipes = viewed_recipes[: min(saved_total, len(viewed_recipes))]
-    cooked_recipes = saved_recipes[: min(cooked_total, len(saved_recipes))]
 
     now = utcnow()
     created_at = now - timedelta(days=rng.randint(25, 180))
@@ -280,6 +453,7 @@ def build_user_state_documents(
     event_docs: list[dict] = []
     recipe_view_increments: dict[str, int] = defaultdict(int)
     recipe_save_increments: dict[str, int] = defaultdict(int)
+    recipe_cook_increments: dict[str, int] = defaultdict(int)
 
     for order, recipe in enumerate(viewed_recipes):
         viewed_count = rng.randint(1, 4)
@@ -293,6 +467,8 @@ def build_user_state_documents(
         recipe_view_increments[recipe.recipe_id] += viewed_count
         if saved:
             recipe_save_increments[recipe.recipe_id] += 1
+        if cooked:
+            recipe_cook_increments[recipe.recipe_id] += 1
 
         last_action = "cook" if cooked else "save" if saved else "view"
         last_action_at = cooked_at or saved_at or last_seen_at
@@ -349,7 +525,7 @@ def build_user_state_documents(
                 }
             )
 
-    return state_docs, event_docs, recipe_view_increments, recipe_save_increments
+    return state_docs, event_docs, recipe_view_increments, recipe_save_increments, recipe_cook_increments
 
 
 def ensure_indexes(db) -> None:
@@ -369,6 +545,56 @@ def ensure_indexes(db) -> None:
                 raise
 
 
+def cleanup_previous_seed_data(db) -> None:
+    db.user_events.delete_many({"source": SEED_SOURCE})
+    db.user_recipe_states.delete_many({"source": SEED_SOURCE})
+    db.users.delete_many({"source": SEED_SOURCE})
+
+
+def build_manifest(users: list[dict], states: list[dict], seed: int) -> dict:
+    counts_by_user: dict[str, dict[str, int]] = defaultdict(lambda: {"saved": 0, "cooked": 0, "viewed": 0})
+    for state in states:
+        counts = counts_by_user[state["user_id"]]
+        counts["viewed"] += 1
+        if state.get("saved"):
+            counts["saved"] += 1
+        if state.get("cooked"):
+            counts["cooked"] += 1
+
+    records = []
+    for user in sorted(users, key=lambda item: item["_id"]):
+        counts = counts_by_user[user["_id"]]
+        records.append(
+            {
+                "email": user["email"],
+                "password": SEED_LOGIN_PASSWORD,
+                "name": user["name"],
+                "persona": user["seed_persona"],
+                "preferred_categories": user["preferences"]["preferred_categories"],
+                "difficulty": user["preferences"]["difficulty"],
+                "saved_count": counts["saved"],
+                "cooked_count": counts["cooked"],
+                "viewed_count": counts["viewed"],
+            }
+        )
+
+    return {
+        "seed_source": SEED_SOURCE,
+        "seed": seed,
+        "password_hint": SEED_LOGIN_PASSWORD,
+        "users": records,
+        "sample_credentials": [
+            {"email": record["email"], "password": record["password"]}
+            for record in records[:20]
+        ],
+    }
+
+
+def write_manifest(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def sync_seed_users_to_neo4j(uri: str, user: str, password: str, users: list[dict], states: list[dict], recipe_map: dict[str, RecipeRecord]) -> None:
     driver = GraphDatabase.driver(uri, auth=(user, password))
     try:
@@ -377,8 +603,8 @@ def sync_seed_users_to_neo4j(uri: str, user: str, password: str, users: list[dic
             session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (r:Recipe) REQUIRE r.id IS UNIQUE")
             session.run(
                 """
-                MATCH (u:User {source: $source})-[rel:VIEWED|SAVED|COOKED]->(:Recipe)
-                DELETE rel
+                MATCH (u:User {source: $source})
+                DETACH DELETE u
                 """,
                 source=SEED_SOURCE,
             ).consume()
@@ -504,6 +730,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Seed fake PotatoHub users into MongoDB and Neo4j.")
     parser.add_argument("--count", type=int, default=DEFAULT_USER_COUNT, help="Number of fake users to generate.")
     parser.add_argument("--seed", type=int, default=DEFAULT_RANDOM_SEED, help="Deterministic random seed.")
+    parser.add_argument("--saved-per-user", type=int, default=DEFAULT_SAVED_PER_USER, help="Exact number of saved recipes per user.")
+    parser.add_argument("--cooked-per-user", type=int, default=DEFAULT_COOKED_PER_USER, help="Exact number of cooked recipes per user.")
+    parser.add_argument("--extra-viewed-per-user", type=int, default=DEFAULT_EXTRA_VIEWED_PER_USER, help="Extra viewed recipes beyond the saved set.")
+    parser.add_argument("--manifest-out", default=str(BASE_DIR / "data" / "seeded_users_manifest.json"), help="Path to write the seeded user manifest.")
     parser.add_argument("--mongo-uri", default="", help="Override MongoDB connection string.")
     parser.add_argument("--mongo-db", default=os.getenv("MONGO_DB", "potatohub"), help="MongoDB database name.")
     parser.add_argument("--neo4j-uri", default="", help="Override Neo4j connection string.")
@@ -515,6 +745,13 @@ def main() -> None:
 
     mongo_uri = args.mongo_uri or resolve_mongo_uri()
     neo4j_uri = args.neo4j_uri or resolve_neo4j_uri()
+    targets = SeedTargets(
+        saved_per_user=max(int(args.saved_per_user), 1),
+        cooked_per_user=max(int(args.cooked_per_user), 0),
+        extra_viewed_per_user=max(int(args.extra_viewed_per_user), 0),
+    )
+    if targets.cooked_per_user > targets.saved_per_user:
+        raise ValueError("--cooked-per-user cannot be greater than --saved-per-user")
 
     rng = random.Random(args.seed)
     client = MongoClient(mongo_uri)
@@ -533,6 +770,7 @@ def main() -> None:
     for recipe in recipes:
         recipes_by_category[recipe.category].append(recipe)
     categories = sorted(recipes_by_category)
+    shared_pools = build_recipe_overlap_pools(random.Random(args.seed + 17), recipes, recipes_by_category)
 
     users: list[dict] = []
     states: list[dict] = []
@@ -540,14 +778,17 @@ def main() -> None:
 
     recipe_view_increments: dict[str, int] = defaultdict(int)
     recipe_save_increments: dict[str, int] = defaultdict(int)
+    recipe_cook_increments: dict[str, int] = defaultdict(int)
 
     for index in range(1, args.count + 1):
         user_doc = build_user_profile(index, rng, categories)
-        state_docs, event_docs, view_increments, save_increments = build_user_state_documents(
+        state_docs, event_docs, view_increments, save_increments, cook_increments = build_user_state_documents(
             user_doc,
             rng,
+            targets,
             recipes,
             recipes_by_category,
+            shared_pools,
         )
         users.append(user_doc)
         states.extend(state_docs)
@@ -556,7 +797,10 @@ def main() -> None:
             recipe_view_increments[recipe_id] += amount
         for recipe_id, amount in save_increments.items():
             recipe_save_increments[recipe_id] += amount
+        for recipe_id, amount in cook_increments.items():
+            recipe_cook_increments[recipe_id] += amount
 
+    cleanup_previous_seed_data(db)
     db.users.bulk_write(
         [ReplaceOne({"_id": doc["_id"]}, doc, upsert=True) for doc in users],
         ordered=False,
@@ -566,7 +810,6 @@ def main() -> None:
         ordered=False,
     )
 
-    db.user_events.delete_many({"source": SEED_SOURCE})
     if events:
         db.user_events.insert_many(events, ordered=False)
 
@@ -579,14 +822,24 @@ def main() -> None:
         recipe_map,
     )
 
+    manifest_path = Path(args.manifest_out).resolve() if args.manifest_out else None
+    if manifest_path is not None:
+        write_manifest(manifest_path, build_manifest(users, states, args.seed))
+
     summary = {
         "seed_source": SEED_SOURCE,
+        "seed_login_password": SEED_LOGIN_PASSWORD,
+        "saved_per_user": targets.saved_per_user,
+        "cooked_per_user": targets.cooked_per_user,
+        "viewed_per_user": targets.saved_per_user + targets.extra_viewed_per_user,
         "users_upserted": len(users),
         "recipe_states_upserted": len(states),
         "events_inserted": len(events),
         "unique_recipes_touched": len({doc["recipe_id"] for doc in states}),
         "view_events_generated": sum(recipe_view_increments.values()),
         "save_events_generated": sum(recipe_save_increments.values()),
+        "cook_events_generated": sum(recipe_cook_increments.values()),
+        "manifest_path": str(manifest_path) if manifest_path is not None else "",
         "mongo_uri": mongo_uri,
         "neo4j_uri": neo4j_uri,
     }
